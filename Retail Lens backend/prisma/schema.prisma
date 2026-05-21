@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum JobCardStatus {
+  DRAFT
+  IN_PROGRESS
+  READY
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum PaymentType {
+  CASH
+  CARD
+  UPI
+  BANK_TRANSFER
+}
+
+enum InventoryKind {
+  FRAME
+  LENS
+  ACCESSORY
+}
+
+enum TaskStatus {
+  PENDING @map("Pending")
+  IN_PROGRESS @map("In Progress")
+  COMPLETED @map("Completed")
+}
+
+enum Priority {
+  HIGH @map("High")
+  MEDIUM @map("Medium")
+  LOW @map("Low")
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  EMAIL
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  fullName     String
+  role         UserRole    @default(STAFF)
+  
+  // Password reset fields
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+
+  // Subscription fields
+  subscriptionExpiresAt DateTime?
+  subscriptionPlan      String?
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  employee     Employee?
+  inventoryMovements InventoryMovement[]
+  auditLogs    AuditLog[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+
+model Employee {
+  id        String   @id @default(cuid())
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id])
+  name      String
+  role      String
+  phone     String?
+  status    String   @default("Active")
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id         String    @id @default(cuid())
+  fullName   String
+  phone      String    @unique
+  email      String?
+  dob        String?
+  address    String?
+  jobCards   JobCard[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model JobCard {
+  id          String         @id @default(cuid())
+  customerId  String
+  customer    Customer       @relation(fields: [customerId], references: [id])
+  status      JobCardStatus  @default(DRAFT)
+  totalAmount Decimal        @default(0) @db.Decimal(10, 2)
+  paidAmount  Decimal        @default(0) @db.Decimal(10, 2)
+  dueAmount   Decimal        @default(0) @db.Decimal(10, 2)
+  
+  // New fields for mobile orders
+  billNo      String?
+  billSeries  String?
+  orderType   String?
+  bookedBy    String?
+  godown      String?
+  title       String?
+  priority    String?        @default("Medium")
+  notes       String?
+  expectedCompletionDate DateTime?
+
+  items       JobCardItem[]
+  payments    Payment[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model JobCardItem {
+  id           String    @id @default(cuid())
+  jobCardId    String
+  jobCard      JobCard   @relation(fields: [jobCardId], references: [id])
+  productId    String?
+  description  String
+  quantity     Int       @default(1)
+  unitPrice    Decimal   @default(0) @db.Decimal(10, 2)
+  lineTotal    Decimal   @default(0) @db.Decimal(10, 2)
+  
+  // Lens power fields
+  sph          String?
+  cyl          String?
+  axis         String?
+  add          String?
+  eye          String?
+
+  createdAt    DateTime  @default(now())
+}
+
+model Payment {
+  id          String      @id @default(cuid())
+  jobCardId   String
+  jobCard     JobCard     @relation(fields: [jobCardId], references: [id])
+  amount      Decimal     @db.Decimal(10, 2)
+  paymentType PaymentType
+  idempotencyKey String?  @unique
+  createdAt   DateTime    @default(now())
+}
+
+model InventoryProduct {
+  id            String              @id @default(cuid())
+  sku           String              @unique
+  name          String
+  kind          InventoryKind
+  stockQuantity Int                 @default(0)
+  reorderLevel  Int                 @default(10)
+  salePrice     Float               @default(1200.0) @map("sale_price")
+  vendorId      String?             @map("vendor_id")
+  vendor        Vendor?             @relation(fields: [vendorId], references: [id])
+  movements     InventoryMovement[]
+  units         InventoryUnit[]
+  powerSpecs    Json?               @map("power_specs")
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model InventoryUnit {
+  id           String           @id @default(cuid())
+  productId    String
+  product      InventoryProduct @relation(fields: [productId], references: [id])
+  uniqueQrCode String           @unique
+  status       String           @default("AVAILABLE") // AVAILABLE, SOLD
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model InventoryMovement {
+  id          String           @id @default(cuid())
+  productId   String
+  product     InventoryProduct @relation(fields: [productId], references: [id])
+  quantity    Int
+  reason      String
+  createdById String?
+  createdBy   User?            @relation(fields: [createdById], references: [id])
+  createdAt   DateTime         @default(now())
+}
+
+model Task {
+  id           String      @id @default(cuid())
+  title        String
+  description  String?
+  status       TaskStatus  @default(PENDING)
+  priority     Priority    @default(MEDIUM)
+  dueDate      String?     @map("due_date")
+  assignedToId String?     @map("assigned_to_id")
+  assignedTo   Employee?   @relation(fields: [assignedToId], references: [id])
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+}
+
+
+model Expense {
+  id          String    @id @default(cuid())
+  title       String
+  amount      Decimal   @db.Decimal(10, 2)
+  notes       String?
+  paymentMode String    @default("CASH")
+  expenseDate DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model StoreSettings {
+  id          String   @id @default(cuid())
+  storeName   String
+  gstNumber   String?
+  address     String?
+  phone       String?
+  email       String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id          String              @id @default(cuid())
+  channel     NotificationChannel
+  recipient   String
+  message     String
+  status      String              @default("queued")
+  createdAt   DateTime            @default(now())
+}
+
+model SyncBatch {
+  id             String       @id @default(cuid())
+  deviceId       String
+  idempotencyKey String?      @unique
+  actions        SyncAction[]
+  conflicts      ConflictRecord[]
+  createdAt      DateTime     @default(now())
+}
+
+model SyncAction {
+  id          String    @id @default(cuid())
+  batchId     String
+  batch       SyncBatch @relation(fields: [batchId], references: [id])
+  actionType  String
+  payloadJson Json
+  createdAt   DateTime  @default(now())
+}
+
+model ConflictRecord {
+  id            String    @id @default(cuid())
+  batchId       String
+  batch         SyncBatch @relation(fields: [batchId], references: [id])
+  actionId      String?
+  resolution    String?
+  details       String?
+  createdAt     DateTime  @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id])
+  action      String
+  entity      String
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+}
+
+model Vendor {
+  id            String             @id @default(uuid())
+  accountId     String             @unique @map("account_id")
+  name          String
+  printName     String?            @map("print_name")
+  alias         String?
+  groupName     String?            @map("group_name")
+  station       String?
+  contactPerson String?            @map("contact_person")
+  phone         String?
+  email         String?
+  accountType   String?            @map("account_type")
+  products      InventoryProduct[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@map("vendors")
+}
+

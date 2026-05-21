@@ -1,0 +1,177 @@
+{
+  "info": {
+    "_postman_id": "8fde4b55-bf1a-4fdf-97c7-c75276e82a93",
+    "name": "Retail Lens - Employees API",
+    "description": "Collection of endpoints to perform CRUD operations on Store Staff / Employees inside the Retail Lens application.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get All Employees",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/employees",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Employee",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Priya Singh\",\n  \"role\": \"Store Manager\",\n  \"phone\": \"9123456780\",\n  \"status\": \"Active\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/employees",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Edit Employee",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Priya Singh\",\n  \"role\": \"Senior Store Manager\",\n  \"phone\": \"9123456780\",\n  \"status\": \"Active\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/employees/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "ENTER_EMPLOYEE_ID_HERE",
+              "description": "The unique identifier (cuid) of the employee"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Employee",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/employees/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "ENTER_EMPLOYEE_ID_HERE",
+              "description": "The unique identifier (cuid) of the employee to delete"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Employee Task Counts",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/employees/:id/tasks",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            ":id",
+            "tasks"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "ENTER_EMPLOYEE_ID_HERE",
+              "description": "The unique identifier (cuid) of the employee"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    }
+  ]
+}

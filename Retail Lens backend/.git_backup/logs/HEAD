@@ -1,0 +1,10 @@
+0000000000000000000000000000000000000000 c05f87a54bf42ef66d86063fba70744767588daa Rudra2307 <abhishektrivedi@abhisheks-MacBook-Air.local> 1777887306 +0530	commit (initial): Initial commit
+c05f87a54bf42ef66d86063fba70744767588daa 0000000000000000000000000000000000000000 Rudra2307 <abhishektrivedi@abhisheks-MacBook-Air.local> 1777887408 +0530	Branch: renamed refs/heads/main to refs/heads/main
+c05f87a54bf42ef66d86063fba70744767588daa c05f87a54bf42ef66d86063fba70744767588daa Rudra2307 <abhishektrivedi@abhisheks-MacBook-Air.local> 1777887408 +0530	Branch: renamed refs/heads/main to refs/heads/main
+c05f87a54bf42ef66d86063fba70744767588daa d1ad5ef35892a6e31c0ddd68280f84cc3639532d Rudra2307 <abhishektrivedi@abhisheks-MacBook-Air.local> 1777890984 +0530	commit: fix: remove duplicate bootstrap function from src/main.ts
+d1ad5ef35892a6e31c0ddd68280f84cc3639532d cc845ed686b938822ee286f8ea1c89aadf5f10b2 Rudra2307 <abhishektrivedi@abhisheks-MacBook-Air.local> 1777891486 +0530	commit: fix: add @types/swagger-ui-express to devDependencies
+cc845ed686b938822ee286f8ea1c89aadf5f10b2 486d4aee85ea2b4ab386382365397a2fe98400f2 Rudra2307 <abhishektrivedi@abhisheks-MacBook-Air.local> 1777894631 +0530	commit: rendor deploy
+486d4aee85ea2b4ab386382365397a2fe98400f2 2b0b6edd82f507e7a75f2584b13b94731cbc8a4a Rudra2307 <abhishektrivedi@abhisheks-MacBook-Air.local> 1777895557 +0530	commit: fix: update docker entrypoint path
+2b0b6edd82f507e7a75f2584b13b94731cbc8a4a f62e2f9c5668879a69fbfecb96cf50fe99738f14 Rudra2307 <abhishektrivedi@abhisheks-MacBook-Air.local> 1777896507 +0530	commit: fix: update docker entrypoint path
+f62e2f9c5668879a69fbfecb96cf50fe99738f14 ac091e8b713f12f570b24b4eb84a9b8726b84940 Rudra2307 <abhishektrivedi@abhisheks-MacBook-Air.local> 1778067748 +0530	commit: api creating
+ac091e8b713f12f570b24b4eb84a9b8726b84940 8a2b2f3f8bceeb0a9c397d4aab13d083c4fb6350 Ammar Ansari <ansariammar22@gmail.com> 1778154002 +0530	commit: Fix Task & Auth controllers, add Postman collection

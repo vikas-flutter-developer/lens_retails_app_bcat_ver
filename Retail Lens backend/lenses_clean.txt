@@ -1,0 +1,419 @@
+--- LENS INVENTORY & POWER GROUPS ---
+Total lens configurations found: 16
+
+1. [BL-LENS-001] - Bausch & Lomb ULTRA HD Single Vision Lens
+   💰 Price: ₹1800 | 📦 Stock: 114 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+2. [BL-LENS-002] - Bausch & Lomb Biotrue Advanced Progressive Lens
+   💰 Price: ₹3500 | 📦 Stock: 75 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+3. [BL-LENS-003] - Bausch & Lomb Xenon Smart Blue-Cut Lens
+   💰 Price: ₹2200 | 📦 Stock: 110 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+4. [BL-LENS-004] - B&L Ultra-Premium HD Lens
+   💰 Price: ₹2500 | 📦 Stock: 50 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+5. [PROD-LENS-001] - Anti-Reflective Blue-Cut Single Vision Lens
+   💰 Price: ₹1500 | 📦 Stock: 170 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+6. [PROD-LENS-001-GP2] - Anti-Reflective Blue-Cut Single Vision Lens
+   💰 Price: ₹1500 | 📦 Stock: 90 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "1",
+          "sphTo": "4",
+          "addFrom": "1",
+          "cylFrom": "0",
+          "sphFrom": "2"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "1",
+          "sphTo": "4",
+          "addFrom": "1",
+          "cylFrom": "0",
+          "sphFrom": "2"
+        }
+      }
+---------------------------------------------------------
+7. [PROD-LENS-001-GP3] - Anti-Reflective Blue-Cut Single Vision Lens
+   💰 Price: ₹1500 | 📦 Stock: 120 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "90",
+          "addTo": "2",
+          "cylTo": "0.5",
+          "sphTo": "0",
+          "addFrom": "1",
+          "cylFrom": "0",
+          "sphFrom": "-2"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "90",
+          "addTo": "2",
+          "cylTo": "0.5",
+          "sphTo": "0",
+          "addFrom": "1",
+          "cylFrom": "0",
+          "sphFrom": "-2"
+        }
+      }
+---------------------------------------------------------
+8. [PROD-LENS-001-GP4] - Anti-Reflective Blue-Cut Single Vision Lens
+   💰 Price: ₹1500 | 📦 Stock: 62 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "6",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "4"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "6",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "4"
+        }
+      }
+---------------------------------------------------------
+9. [PROD-LENS-002] - Crizal Prevencia Premium Progressive Lens
+   💰 Price: ₹4800 | 📦 Stock: 80 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+10. [PROD-LENS-003] - Transitions Gen 8 Smart Adaptive Photogray Lens
+   💰 Price: ₹5500 | 📦 Stock: 120 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+11. [PROD-LENS-005] - Zeiss DriveSafe Premium Single Vision Lens
+   💰 Price: ₹6200 | 📦 Stock: 90 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+12. [PROD-LENS-006] - Essilor Eyezen Boost Single Vision Lens
+   💰 Price: ₹1200 | 📦 Stock: 70 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+13. [PROD-LENS-LOW] - Zeiss Premium Anti-Fog Single Vision Lens (LOW STOCK)
+   💰 Price: ₹2800 | 📦 Stock: 13 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+14. [Vikas HQ ] - Vikas HQ
+   💰 Price: ₹800 | 📦 Stock: 45 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 50,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 50,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+15. [Vikas lens ] - Vikas Special Lens 
+   💰 Price: ₹999 | 📦 Stock: 10 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------
+16. [Vikas New Lens 2.0] - Vikas New Lens 2.0
+   💰 Price: ₹900 | 📦 Stock: 60 Pcs
+   👓 Power Spec details:
+      {
+        "leftEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        },
+        "rightEye": {
+          "qty": 1,
+          "axis": "180",
+          "addTo": "2",
+          "cylTo": "2",
+          "sphTo": "2",
+          "addFrom": "1",
+          "cylFrom": "1",
+          "sphFrom": "1"
+        }
+      }
+---------------------------------------------------------

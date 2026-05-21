@@ -1,0 +1,28 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.apiV1Router = void 0;
+const express_1 = require("express");
+const auth_routes_1 = require("./auth.routes");
+const employees_routes_1 = require("./employees.routes");
+const finance_routes_1 = require("./finance.routes");
+const health_routes_1 = require("./health.routes");
+const inventory_routes_1 = require("./inventory.routes");
+const job_cards_routes_1 = require("./job-cards.routes");
+const notifications_routes_1 = require("./notifications.routes");
+const reports_routes_1 = require("./reports.routes");
+const settings_routes_1 = require("./settings.routes");
+const sync_routes_1 = require("./sync.routes");
+const tasks_routes_1 = require("./tasks.routes");
+exports.apiV1Router = (0, express_1.Router)();
+exports.apiV1Router.use('/auth', auth_routes_1.authRouter);
+exports.apiV1Router.use('/job-cards', job_cards_routes_1.jobCardsRouter);
+exports.apiV1Router.use('/inventory', inventory_routes_1.inventoryRouter);
+exports.apiV1Router.use('/tasks', tasks_routes_1.tasksRouter);
+exports.apiV1Router.use('/employees', employees_routes_1.employeesRouter);
+exports.apiV1Router.use('/reports', reports_routes_1.reportsRouter);
+exports.apiV1Router.use('/finances', finance_routes_1.financeRouter);
+exports.apiV1Router.use('/settings', settings_routes_1.settingsRouter);
+exports.apiV1Router.use('/notifications', notifications_routes_1.notificationsRouter);
+exports.apiV1Router.use('/sync', sync_routes_1.syncRouter);
+exports.apiV1Router.use('/health', health_routes_1.healthRouter);
+//# sourceMappingURL=index.js.map
