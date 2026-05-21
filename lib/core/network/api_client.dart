@@ -1,13 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 class ApiClient {
-  static const String baseUrl = ''; // DISCONNECTED MODE
+  static const String baseUrl = AppConfig.apiBaseUrl;
   static GlobalKey<NavigatorState>? navigatorKey;
-  // static const String baseUrl = 'http://10.0.2.2:5000/api/'; // Local Testing (Emulator)
-  // static const String baseUrl = 'https://lens-project.apps.mytabletap.com/api/'; // Production
   
+
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
@@ -16,9 +16,10 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'X-API-Key': AppConfig.apiKey,
       },
-      // Enable credentials for web (cookies sent automatically by browser)
-      extra: {'withCredentials': true},
+      // Disable credentials for web to prevent strict CORS origin-matching checks
+      extra: {'withCredentials': false},
     ),
   );
 
@@ -28,8 +29,8 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Add withCredentials for web cookie support
-          options.extra['withCredentials'] = true;
+          // Disable credentials for web to prevent strict CORS origin-matching checks
+          options.extra['withCredentials'] = false;
           
           // Fallback: Also try Bearer token if present
           final prefs = await SharedPreferences.getInstance();
@@ -38,6 +39,7 @@ class ApiClient {
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+          options.headers['X-API-Key'] = AppConfig.apiKey;
           
           // debugPrint('🌐 [API Request] ${options.method} ${options.path}');
           return handler.next(options);

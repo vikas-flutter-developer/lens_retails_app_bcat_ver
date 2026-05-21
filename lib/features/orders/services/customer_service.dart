@@ -22,21 +22,25 @@ class CustomerService {
       return customers.where((c) => c['name'].toLowerCase().contains(query.toLowerCase())).toList();
     }
     try {
-      final response = await ApiClient.dio.get('accounts/getallaccounts', queryParameters: {
-        'type': 'sale',
-        'search': query
-      });
+      final response = await ApiClient.dio.get('v1/customers');
       
-      // backend returns a direct list of accounts for this endpoint
       final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
       
-      return data.map((c) => {
-        'id': c['_id'] ?? c['id'],
-        'name': c['Name'] ?? '',
-        'mobile': c['MobileNumber'] ?? '',
-        'address': c['Address'] ?? '',
-        'dob': c['DOB'] ?? '',
-        'accountId': c['AccountId'] ?? ''
+      final mapped = data.map((c) => {
+        'id': c['id'] ?? c['_id'],
+        'name': c['fullName'] ?? c['name'] ?? c['Name'] ?? '',
+        'mobile': c['phone'] ?? c['mobile'] ?? c['MobileNumber'] ?? '',
+        'address': c['address'] ?? c['Address'] ?? '',
+        'dob': c['dob'] ?? c['DOB'] ?? '',
+        'accountId': c['phone'] ?? c['mobile'] ?? c['AccountId'] ?? ''
+      }).toList();
+
+      if (query.isEmpty) return mapped;
+      return mapped.where((c) {
+        final name = (c['name'] ?? '').toString().toLowerCase();
+        final mobile = (c['mobile'] ?? '').toString().toLowerCase();
+        final q = query.toLowerCase();
+        return name.contains(q) || mobile.contains(q);
       }).toList();
     } catch (e) {
       return [];
@@ -72,12 +76,49 @@ class CustomerService {
       };
     }
     try {
-      final response = await ApiClient.dio.post('mobile/customers', data: customerData);
+      final response = await ApiClient.dio.post('v1/customers', data: {
+        'fullName': customerData['name'],
+        'phone': customerData['mobile'],
+        'address': customerData['address'],
+        'dob': customerData['dob'],
+      });
       if (response.data['success'] == true) {
-         return response.data['data'] as Map<String, dynamic>?;
+         final data = (response.data['data'] as Map<String, dynamic>?);
+         if (data == null) return null;
+         return {
+           ...data,
+           '_id': data['_id'] ?? data['id'],
+         };
       }
       return null;
     } catch (e) {
+      return null;
+    }
+  }
+  Future<Map<String, dynamic>?> updateCustomer(String id, Map<String, dynamic> customerData) async {
+    if (AppConfig.useMockData) {
+      debugPrint('🧪 [CustomerService] MOCK MODE: Updating customer $id');
+      await Future.delayed(const Duration(milliseconds: 300));
+      return customerData;
+    }
+    try {
+      final response = await ApiClient.dio.patch('v1/customers/$id', data: {
+        'fullName': customerData['name'],
+        'phone': customerData['mobile'],
+        'address': customerData['address'],
+        'dob': customerData['dob'],
+      });
+      if (response.data['success'] == true) {
+         final data = (response.data['data'] as Map<String, dynamic>?);
+         if (data == null) return null;
+         return {
+           ...data,
+           '_id': data['_id'] ?? data['id'],
+         };
+      }
+      return null;
+    } catch (e) {
+      debugPrint('🚨 Error updating customer: $e');
       return null;
     }
   }

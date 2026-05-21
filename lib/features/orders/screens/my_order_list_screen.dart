@@ -30,7 +30,7 @@ class _MyOrderListScreenState extends State<MyOrderListScreen> {
   late String _selectedStatus; // Late initialization
 
   final List<String> _statusOptions = [
-    'All', 'Pending', 'In Progress', 'Sent to Lab', 'Received', 'Fitting', 'Done', 'Shipped', 'Delivered', 'Cancelled', 'Rejected'
+    'All', 'Active', 'Pending', 'In Progress', 'Sent to Lab', 'Received', 'Fitting', 'Done', 'Shipped', 'Delivered', 'Cancelled', 'Rejected'
   ];
 
   @override
@@ -97,6 +97,12 @@ class _MyOrderListScreenState extends State<MyOrderListScreen> {
 
   void _filterOrders() {
     final query = _searchController.text.toLowerCase();
+    debugPrint('🔍 [FilterOrders] _allOrders length: ${_allOrders.length}');
+    for (var o in _allOrders) {
+      debugPrint('   -> Invoice: ${o['invoice']}, Customer: ${o['customer']}, Status: ${o['status']}, Type: ${o['type']}');
+    }
+    debugPrint('🔍 [FilterOrders] _selectedStatus: $_selectedStatus, _selectedType: $_selectedType');
+
     setState(() {
       _filteredOrders = _allOrders.where((order) {
         final matchesSearch = (order['customer']?.toLowerCase() ?? '').contains(query) || 
@@ -105,8 +111,18 @@ class _MyOrderListScreenState extends State<MyOrderListScreen> {
         final matchesType = _selectedType == 'All' || (order['type'] == _selectedType);
         
         final status = order['status']?.toString() ?? '';
+        
+        String normStatus = status.toLowerCase().replaceAll('_', ' ').replaceAll('-', ' ').trim();
+        if (normStatus == 'draft') normStatus = 'pending';
+        if (normStatus == 'ready') normStatus = 'done';
+        
+        String normSelected = _selectedStatus.toLowerCase().replaceAll('_', ' ').replaceAll('-', ' ').trim();
+        if (normSelected == 'draft') normSelected = 'pending';
+        if (normSelected == 'ready') normSelected = 'done';
+        
         final matchesStatus = _selectedStatus == 'All' || 
-                              (status.toLowerCase() == _selectedStatus.toLowerCase()); // Case insensitive match
+                              (_selectedStatus == 'Active' && (normStatus == 'pending' || normStatus == 'in progress' || normStatus == 'done')) ||
+                              (normStatus == normSelected);
         
         return matchesSearch && matchesType && matchesStatus;
       }).toList();
@@ -369,7 +385,7 @@ class _MyOrderListScreenState extends State<MyOrderListScreen> {
                 filled: true,
                 fillColor: Colors.white,
               ),
-              initialValue: items.contains(value) ? value : items.first, // Safe fallback
+              value: items.contains(value) ? value : items.first, // Safe fallback
               items: items.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis))).toList(),
               onChanged: onChanged,
               isExpanded: true, // Prevent overflow

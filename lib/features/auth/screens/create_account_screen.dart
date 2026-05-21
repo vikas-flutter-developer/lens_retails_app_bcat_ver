@@ -19,6 +19,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _formKey = GlobalKey<FormState>();
   
   bool _isLoading = false;
+  String _selectedRole = 'OWNER';
 
   void _navigateToSubscription() {
     if (_formKey.currentState!.validate()) {
@@ -29,6 +30,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         'shopName': _shopNameController.text.trim(),
         'address': _addressController.text.trim(),
         'password': _passwordController.text,
+        'role': _selectedRole,
       };
       
       Navigator.of(context).push(
@@ -57,9 +59,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('New Registration', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
@@ -85,6 +84,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               _buildTextField('Email Address', _emailController, Icons.email_outlined),
               const SizedBox(height: 16),
               _buildTextField('Phone / Mobile', _phoneController, Icons.phone_android_outlined, isPhone: true),
+              const SizedBox(height: 16),
+              _buildRoleDropdown(),
               
               const SizedBox(height: 32),
               _buildSectionTitle('BUSINESS DETAILS'),
@@ -124,6 +125,39 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildRoleDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _selectedRole,
+      decoration: InputDecoration(
+        labelText: 'Select Role',
+        prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+        filled: true,
+        fillColor: Colors.grey[50],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[200]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[200]!),
+        ),
+        contentPadding: const EdgeInsets.all(16),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'OWNER', child: Text('Owner')),
+        DropdownMenuItem(value: 'MANAGER', child: Text('Manager')),
+        DropdownMenuItem(value: 'STAFF', child: Text('Staff')),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedRole = value;
+          });
+        }
+      },
     );
   }
 

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,16 @@ import 'features/auth/screens/login_screen.dart';
 import 'features/home/screens/dashboard_screen.dart';
 import 'features/orders/screens/add_order_screen.dart';
 
+class MyCustomScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   ApiClient.init();
@@ -15,7 +26,26 @@ void main() async {
   
   final prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('auth_token');
-  final initialRoute = (token?.isNotEmpty == true) ? '/dashboard' : '/';
+  final role = prefs.getString('auth_user_role');
+  final expiresAtStr = prefs.getString('auth_subscription_expires_at');
+  
+  String initialRoute = '/';
+  if (token?.isNotEmpty == true) {
+    if (role == 'OWNER' && expiresAtStr != null && expiresAtStr.isNotEmpty) {
+      try {
+        final expiresAt = DateTime.parse(expiresAtStr);
+        if (DateTime.now().isAfter(expiresAt)) {
+          initialRoute = '/subscription';
+        } else {
+          initialRoute = '/dashboard';
+        }
+      } catch (_) {
+        initialRoute = '/dashboard';
+      }
+    } else {
+      initialRoute = '/dashboard';
+    }
+  }
 
   runApp(LenseApp(initialRoute: initialRoute));
 }
@@ -32,6 +62,7 @@ class LenseApp extends StatelessWidget {
     return MaterialApp(
       title: 'Lense',
       navigatorKey: navigatorKey,
+      scrollBehavior: MyCustomScrollBehavior(),
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -58,6 +89,11 @@ class LenseApp extends StatelessWidget {
           foregroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(
+              bottom: Radius.circular(24),
+            ),
+          ),
           titleTextStyle: GoogleFonts.outfit(
             color: Colors.white,
             fontWeight: FontWeight.bold,

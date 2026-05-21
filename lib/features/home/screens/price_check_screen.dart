@@ -103,7 +103,7 @@ class _PriceCheckScreenState extends State<PriceCheckScreen> {
                           final name = item['itemName'] ?? 'Unknown Item';
                           final salePrice = item['salePrice']?.toString() ?? '0';
                           final mrpPrice = item['mrpPrice']?.toString() ?? '0';
-                          final wholesalePrice = item['purchasePrice']?.toString() ?? '0';
+                          final wholesalePrice = (item['purchasePrice'] ?? item['powerSpecs']?['purchasePrice'] ?? '0').toString();
                           final category = item['groupName'] ?? item['mainCategory'] ?? 'General';
                           
                           return Card(

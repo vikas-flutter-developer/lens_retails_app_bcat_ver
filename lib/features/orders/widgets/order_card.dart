@@ -148,6 +148,38 @@ class _OrderCardState extends State<OrderCard> {
                       // Date & Delivery (Conditional)
                       if (widget.order['date'] != null && widget.order['date'].toString().isNotEmpty)
                         _buildInfoText('Date: ${widget.order['date']} ${ (widget.order['delDate'] != null && widget.order['delDate'].toString().isNotEmpty) ? "Del: ${widget.order['delDate']}" : "" }'),
+                      
+                      // Paid & Due (Show beautiful badges)
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              border: Border.all(color: Colors.green[200]!),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Paid: ₹${widget.order['paidAmount'] ?? '0.00'}',
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.green),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red[50],
+                              border: Border.all(color: Colors.red[200]!),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Due: ₹${widget.order['dueAmount'] ?? '0.00'}',
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
                         
                       // Remarks (Conditional)
                       if (widget.order['remarks'] != null && widget.order['remarks'].toString().isNotEmpty)
@@ -228,7 +260,7 @@ class _OrderCardState extends State<OrderCard> {
                              // Group items by itemName
                              final Map<String, List<dynamic>> grouped = {};
                              for (var item in items) {
-                               final name = item['itemName']?.toString() ?? 'Lens Item';
+                               final name = item['description']?.toString() ?? item['itemName']?.toString() ?? 'Lens Item';
                                if (!grouped.containsKey(name)) grouped[name] = [];
                                grouped[name]!.add(item);
                              }
@@ -253,7 +285,7 @@ class _OrderCardState extends State<OrderCard> {
                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.brown),
                                            ),
                                            Text(
-                                             '₹${groupItems.fold<double>(0, (sum, item) => sum + (double.tryParse(item['totalAmount']?.toString() ?? '0') ?? 0)).toStringAsFixed(2)}',
+                                             '₹${groupItems.fold<double>(0, (sum, item) => sum + (double.tryParse(item['lineTotal']?.toString() ?? item['totalAmount']?.toString() ?? item['unitPrice']?.toString() ?? '0') ?? 0)).toStringAsFixed(2)}',
                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.brown),
                                            ),
                                          ],
@@ -267,7 +299,7 @@ class _OrderCardState extends State<OrderCard> {
                                               'cyl': item['cyl']?.toString() ?? '',
                                               'axis': item['axis']?.toString() ?? '',
                                               'add': item['add']?.toString() ?? '',
-                                              'qty': item['qty']?.toString() ?? '1',
+                                              'qty': item['quantity']?.toString() ?? item['qty']?.toString() ?? '1',
                                         };
                                         return Column(
                                           children: [
@@ -300,7 +332,7 @@ class _OrderCardState extends State<OrderCard> {
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown),
                       ),
                       Text(
-                        '₹${(items).fold<double>(0, (sum, item) => sum + (double.tryParse(item['totalAmount']?.toString() ?? '0') ?? 0)).toStringAsFixed(2)}',
+                        '₹${(items).fold<double>(0, (sum, item) => sum + (double.tryParse(item['lineTotal']?.toString() ?? item['totalAmount']?.toString() ?? item['unitPrice']?.toString() ?? '0') ?? 0)).toStringAsFixed(2)}',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown),
                       ),
                     ],
@@ -358,6 +390,11 @@ class _OrderCardState extends State<OrderCard> {
                                 'Delivery OTP: ${_otpData!['otp']}',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.5, color: Colors.black87),
                               )
+                            else if (_otpData?['message'] != null)
+                              Text(
+                                _otpData!['message'].toString(),
+                                style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 13),
+                              )
                             else
                               const Text(
                                 'OTP Pending...',
@@ -410,7 +447,7 @@ class _OrderCardState extends State<OrderCard> {
                       }
                     }
                   }),
-                  _buildActionIcon(context, const IconData(0xf05a6, fontFamily: 'MaterialIcons'), () => _launchWhatsApp(), color: Colors.green),
+                  _buildActionIcon(context, Icons.chat_bubble_rounded, () => _launchWhatsApp(), color: Colors.green),
                   _buildActionIcon(context, Icons.delete, () => _showDeleteDialog(context)),
                 ],
               );
@@ -525,27 +562,38 @@ class _OrderCardState extends State<OrderCard> {
 
                           // Try the appropriate endpoint first based on type
                           try {
+                            Map<String, dynamic> resp = {'success': false, 'message': 'Unknown error'};
                             if (orderType == 'RX') {
-                              await service.deleteRxOrder(orderId);
+                              resp = await service.deleteRxOrder(orderId);
                             } else {
-                              await service.deleteOrder(orderId);
+                              resp = await service.deleteOrder(orderId);
                             }
-                          } catch (firstError) {
-                            debugPrint('⚠️ [OrderCard] First delete attempt failed, trying alternate endpoint...');
-                            // Fallback: Try the opposite endpoint
-                            if (orderType == 'RX') {
-                              await service.deleteOrder(orderId);
-                            } else {
-                              await service.deleteRxOrder(orderId);
-                            }
-                          }
 
-                          if (context.mounted) {
-                            Navigator.pop(context); // Close dialog
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Order Deleted Successfully'), backgroundColor: Colors.green),
-                            );
-                            if (widget.onDelete != null) widget.onDelete!();
+                            // If backend reports success, close and refresh
+                            if (resp['success'] == true) {
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Order Deleted Successfully'), backgroundColor: Colors.green),
+                                );
+                                if (widget.onDelete != null) widget.onDelete!();
+                              }
+                            } else {
+                              // Not supported or failed — show message and keep dialog open
+                              if (context.mounted) {
+                                setDialogState(() => isDeleting = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(resp['message']?.toString() ?? 'Delete not supported'), backgroundColor: Colors.orange),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              setDialogState(() => isDeleting = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to delete: $e'), backgroundColor: Colors.red),
+                              );
+                            }
                           }
                         } catch (e) {
                           if (context.mounted) {

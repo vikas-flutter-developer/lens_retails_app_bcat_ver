@@ -25,6 +25,8 @@ class MockData {
     return {
       "todayCollection": totalRevenue,
       "cashInHand": netCash > 0 ? netCash : 0.0, // Don't show negative cash
+      "todayProfit": totalRevenue * 0.45,
+      "netProfit": netCash > 0 ? netCash * 0.45 : 0.0,
       "cashCollection": cashCollection,
       "bankCollection": bankCollection,
       "upiCollection": upiCollection,
@@ -50,7 +52,7 @@ class MockData {
     print('💰 [MockData] Sale Added: ₹$amount ($mode). New Revenue: ₹$totalRevenue');
   }
 
-  static void addExpense(double amount, {String category = 'Misc', String note = ''}) {
+  static void addExpense(double amount, {String category = 'Misc', String note = '', String paymentMode = 'CASH'}) {
     final now = DateTime.now();
     final dateStr = "${now.day}-${now.month}-${now.year}";
     
@@ -60,12 +62,13 @@ class MockData {
       'category': category,
       'amount': amount,
       'note': note,
+      'paymentMode': paymentMode,
       'type': 'Payment'
     });
     
     totalExpenses += amount;
     // ignore: avoid_print
-    print('💸 [MockData] Expense Added: ₹$amount ($category). Total Expenses: ₹$totalExpenses');
+    print('💸 [MockData] Expense Added: ₹$amount ($category) via $paymentMode. Total Expenses: ₹$totalExpenses');
   }
 
   // --- ORDERS ---
@@ -491,35 +494,40 @@ class MockData {
       "itemName": "Single Vision Blue Cut",
       "salePrice": 1200.0,
       "mainCategory": "Lens",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 5
     },
     {
       "id": "L2",
       "itemName": "Anti-Reflective Coating (ARC)",
       "salePrice": 800.0,
       "mainCategory": "Lens",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 12
     },
     {
       "id": "L3",
       "itemName": "Photochromic (Transition)",
       "salePrice": 2500.0,
       "mainCategory": "Lens",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 0
     },
     {
       "id": "L4",
       "itemName": "Digital Progressive Prime",
       "salePrice": 4500.0,
       "mainCategory": "Lens",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 0
     },
     {
       "id": "L5",
       "itemName": "Polycarbonate Safety Lens",
       "salePrice": 1800.0,
       "mainCategory": "Lens",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 25
     },
     // FRAMES
     {
@@ -527,35 +535,40 @@ class MockData {
       "itemName": "Titan Edge - Matte Black",
       "salePrice": 3500.0,
       "mainCategory": "Frame",
-      "isFrame": true
+      "isFrame": true,
+      "stockQty": 4
     },
     {
       "id": "F2",
       "itemName": "Ray-Ban Wayfarer Classic",
       "salePrice": 8500.0,
       "mainCategory": "Frame",
-      "isFrame": true
+      "isFrame": true,
+      "stockQty": 2
     },
     {
       "id": "F3",
       "itemName": "Fastrack Sporty Wrap",
       "salePrice": 1500.0,
       "mainCategory": "Frame",
-      "isFrame": true
+      "isFrame": true,
+      "stockQty": 0
     },
     {
       "id": "F4",
       "itemName": "Vogue Chic - Rose Gold",
       "salePrice": 5200.0,
       "mainCategory": "Frame",
-      "isFrame": true
+      "isFrame": true,
+      "stockQty": 1
     },
     {
       "id": "F5",
       "itemName": "Oakley Holbrook - Sapphire",
       "salePrice": 9000.0,
       "mainCategory": "Frame",
-      "isFrame": true
+      "isFrame": true,
+      "stockQty": 0
     },
     // SOLUTIONS & CONTACT LENS
     {
@@ -563,54 +576,61 @@ class MockData {
       "itemName": "Bausch & Lomb Soft Lens",
       "salePrice": 1500.0,
       "mainCategory": "Contact Lens",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 30
     },
     {
       "id": "CL2",
       "itemName": "Acuvue Oasys Weekly",
       "salePrice": 2200.0,
       "mainCategory": "Contact Lens",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 0
     },
     {
       "id": "CL3",
       "itemName": "Air Optix Monthly",
       "salePrice": 1800.0,
       "mainCategory": "Contact Lens",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 15
     },
     {
       "id": "S1",
       "itemName": "Renu Multi-Purpose Solution (300ml)",
       "salePrice": 450.0,
       "mainCategory": "Solutions",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 50
     },
     {
       "id": "S2",
       "itemName": "Opti-Free PureMoist (300ml)",
       "salePrice": 550.0,
       "mainCategory": "Solutions",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 20
     },
     {
       "id": "S3",
       "itemName": "Biotrue Multi-Purpose (300ml)",
       "salePrice": 480.0,
       "mainCategory": "Solutions",
-      "isFrame": false
+      "isFrame": false,
+      "stockQty": 0
     },
   ];
 
+
   // --- EXPENSES ---
   static List<Map<String, dynamic>> mockExpenses = [
-    {'id': '1', 'date': '29-4-2026', 'category': 'Tea/Snacks', 'amount': 150.0, 'note': 'Client meeting', 'type': 'Payment'},
-    {'id': '2', 'date': '28-4-2026', 'category': 'Stationery', 'amount': 450.0, 'note': 'Paper and pens', 'type': 'Payment'},
-    {'id': '3', 'date': '15-4-2026', 'category': 'Rent', 'amount': 15000.0, 'note': 'Shop monthly rent', 'type': 'Payment'},
-    {'id': '4', 'date': '10-4-2026', 'category': 'Electricity', 'amount': 3200.0, 'note': 'MSEB Bill April', 'type': 'Payment'},
-    {'id': '5', 'date': '05-4-2026', 'category': 'Salary', 'amount': 8500.0, 'note': 'Staff payment - Rahul', 'type': 'Payment'},
-    {'id': '6', 'date': '20-3-2026', 'category': 'Maintenance', 'amount': 1200.0, 'note': 'A/C Servicing', 'type': 'Payment'},
-    {'id': '7', 'date': '05-1-2026', 'category': 'Marketing', 'amount': 5000.0, 'note': 'Local newspaper ad', 'type': 'Payment'},
+    {'id': '1', 'date': '29-4-2026', 'category': 'Tea/Snacks', 'amount': 150.0, 'note': 'Client meeting', 'type': 'Payment', 'paymentMode': 'CASH'},
+    {'id': '2', 'date': '28-4-2026', 'category': 'Stationery', 'amount': 450.0, 'note': 'Paper and pens', 'type': 'Payment', 'paymentMode': 'CASH'},
+    {'id': '3', 'date': '15-4-2026', 'category': 'Rent', 'amount': 15000.0, 'note': 'Shop monthly rent', 'type': 'Payment', 'paymentMode': 'ONLINE'},
+    {'id': '4', 'date': '10-4-2026', 'category': 'Electricity', 'amount': 3200.0, 'note': 'MSEB Bill April', 'type': 'Payment', 'paymentMode': 'ONLINE'},
+    {'id': '5', 'date': '05-4-2026', 'category': 'Salary', 'amount': 8500.0, 'note': 'Staff payment - Rahul', 'type': 'Payment', 'paymentMode': 'ONLINE'},
+    {'id': '6', 'date': '20-3-2026', 'category': 'Maintenance', 'amount': 1200.0, 'note': 'A/C Servicing', 'type': 'Payment', 'paymentMode': 'CASH'},
+    {'id': '7', 'date': '05-1-2026', 'category': 'Marketing', 'amount': 5000.0, 'note': 'Local newspaper ad', 'type': 'Payment', 'paymentMode': 'ONLINE'},
   ];
 
   static double getExpensesForDate(DateTime date) {

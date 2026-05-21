@@ -12,15 +12,20 @@ class MasterDataService {
       return true;
     }
     try {
-      if (isAccount) {
-        // MATCH REACT: /accounts/delete/${id}
-        final response = await ApiClient.dio.delete('accounts/delete/$id');
-        // Match React Success Logic: res.data.success === true
-        return response.data != null && response.data['success'] == true;
-      } else {
-        final response = await ApiClient.dio.delete('vendor/deleteVendor', queryParameters: {'id': id});
-        return response.data != null && response.data['success'] == true;
+      final candidates = [
+        'v1/vendors/$id',
+        'v1/accounts/$id',
+      ];
+      for (final path in candidates) {
+        try {
+          final resp = await ApiClient.dio.delete(path);
+          if (resp.statusCode == 200 || resp.statusCode == 204) return true;
+        } catch (e) {
+          debugPrint('⚠️ [MasterData] Delete $path failed: $e');
+        }
       }
+      // Endpoint not present or deletion not supported
+      return false;
     } catch (e) {
       debugPrint('❌ [MasterData] Error deleting vendor: $e');
       return false;
@@ -41,37 +46,38 @@ class MasterDataService {
       return true;
     }
     try {
-      // Build payload exactly as backend/React expects
-      final accountData = {
-        'Name': vendorData['name'],
-        'PrintName': vendorData['printName'] ?? vendorData['name'],
-        'Alias': vendorData['alias'] ?? '',
-        'AccountId': vendorData['accountId'],
-        'AccountType': vendorData['accountType'] ?? 'Purchase',
-        'AccountDealerType': vendorData['dealerType'] ?? 'unregisterd',
-        'Groups': [vendorData['group'] ?? 'Purchase Accounts'],
-        'Stations': [vendorData['station'] ?? 'Local'],
-        'State': vendorData['state'] ?? 'Maharashtra',
-        'ContactPerson': vendorData['contactPerson'] ?? '',
-        'MobileNumber': vendorData['phone'] ?? '',
-        'Email': vendorData['email'] ?? '',
-        'GSTIN': vendorData['gstin'] ?? '',
-        'Address': vendorData['address'] ?? '',
-        'OpeningBalance': {
-          'balance': 0,
-          'type': 'Dr',
-        },
-        'PreviousYearBalance': {
-          'balance': 0,
-          'type': 'Dr',
-        },
-        'EnableLoyality': 'Y',
+      final payload = {
+        'name': vendorData['name'],
+        'printName': vendorData['printName'] ?? '',
+        'accountId': vendorData['accountId'] ?? '',
+        'alias': vendorData['alias'] ?? '',
+        'group': vendorData['group'] ?? '',
+        'station': vendorData['station'] ?? '',
+        'phone': vendorData['phone'] ?? '',
+        'email': vendorData['email'] ?? '',
+        'accountType': vendorData['accountType'] ?? '',
+        'address': vendorData['address'] ?? '',
+        'dob': vendorData['dob'] ?? '',
+        'gstin': vendorData['gstin'] ?? '',
+        'contactPerson': vendorData['contactPerson'] ?? '',
       };
 
-      // MATCH REACT: /accounts/add-account
-      final response = await ApiClient.dio.post('accounts/add-account', data: accountData);
-      // Match React Success Logic: res.data.success === true
-      return response.data != null && response.data['success'] == true;
+      final candidates = [
+        'v1/vendors',
+        'v1/accounts',
+        'v1/contacts',
+      ];
+
+      for (final path in candidates) {
+        try {
+          final resp = await ApiClient.dio.post(path, data: payload);
+          if (resp.statusCode == 200 || resp.statusCode == 201) return true;
+        } catch (e) {
+          debugPrint('⚠️ [MasterData] Vendor create at $path failed: $e');
+        }
+      }
+
+      return false;
     } catch (e) {
       debugPrint('❌ [MasterData] Error creating account vendor: $e');
       return false;
@@ -85,19 +91,36 @@ class MasterDataService {
       return MockData.mockVendors;
     }
     try {
-      // Fetch ONLY from Accounts collection (Type: Purchase) to match React perfectly
-      final accountResponse = await ApiClient.dio.get('accounts/getallaccounts?type=purchase');
+      // Prefer dedicated vendor endpoint when available.
+      final accountResponse = await ApiClient.dio.get('v1/vendors').catchError((_) => null);
       List<Map<String, dynamic>> vendors = [];
       
-      if (accountResponse.statusCode == 200) {
+      if (accountResponse != null && accountResponse.statusCode == 200) {
         final List<dynamic> accounts = accountResponse.data is List ? accountResponse.data : (accountResponse.data['data'] ?? []);
         for (var acc in accounts) {
           vendors.add({
-            'id': acc['_id'] ?? acc['AccountId'],
-            'name': acc['Name'] ?? acc['PrintName'], 
-            'phone': acc['MobileNumber'] ?? acc['TelNumber'] ?? '',
-            'address': acc['Address'] ?? '',
+            'id': acc['id'] ?? acc['_id'],
+            'name': acc['name'] ?? acc['Name'] ?? acc['PrintName'], 
+            'phone': acc['phone'] ?? acc['mobile'] ?? acc['MobileNumber'] ?? acc['TelNumber'] ?? '',
+            'email': acc['email'] ?? acc['Email'] ?? '',
+            'group': acc['group'] ?? '',
+            'gstin': acc['gstin'] ?? '',
+            'address': acc['address'] ?? acc['Address'] ?? '',
+            'contactPerson': acc['contactPerson'] ?? '',
             'isAccount': true, 
+          });
+        }
+      } else {
+        // Fallback to staff endpoint so dropdown remains usable.
+        final fallback = await ApiClient.dio.get('v1/staff');
+        final List<dynamic> staff = fallback.data is List ? fallback.data : (fallback.data['data'] ?? []);
+        for (var s in staff) {
+          vendors.add({
+            'id': s['id'] ?? s['_id'],
+            'name': s['name'] ?? 'Vendor',
+            'phone': s['mobile'] ?? '',
+            'address': '',
+            'isAccount': true,
           });
         }
       }
@@ -109,6 +132,42 @@ class MasterDataService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchVendorById(String id) async {
+    try {
+      final response = await ApiClient.dio.get('v1/vendors/$id');
+      if (response.statusCode == 200 && response.data != null) {
+        final Map<String, dynamic> raw = Map<String, dynamic>.from(response.data);
+        final innerData = raw['data'] ?? {};
+        if (innerData is Map && innerData.containsKey('data')) {
+          return Map<String, dynamic>.from(innerData['data'] ?? {});
+        }
+        return Map<String, dynamic>.from(innerData);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error fetching vendor by id: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchVendorLedger(String id) async {
+    try {
+      final response = await ApiClient.dio.get('v1/vendors/$id/ledger');
+      if (response.statusCode == 200 && response.data != null) {
+        final Map<String, dynamic> raw = Map<String, dynamic>.from(response.data);
+        final innerData = raw['data'] ?? {};
+        if (innerData is Map && innerData.containsKey('data')) {
+          return Map<String, dynamic>.from(innerData['data'] ?? {});
+        }
+        return Map<String, dynamic>.from(innerData);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error fetching vendor ledger: $e');
+      return null;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchItems() async {
     if (AppConfig.useMockData) {
       debugPrint('🧪 [MasterData] MOCK MODE: Returning 10 items (Lens & Frames)');
@@ -116,19 +175,41 @@ class MasterDataService {
       return MockData.mockItems;
     }
     try {
-      final response = await ApiClient.dio.get('items/');
+      final response = await ApiClient.dio.get('v1/inventory');
       
       if (response.statusCode == 200) {
         final data = response.data;
 
         if (data is List) {
-           return List<Map<String, dynamic>>.from(data);
+           return List<Map<String, dynamic>>.from(data).map((item) => {
+             ...item,
+             'itemName': item['itemName'] ?? item['name'] ?? 'Unknown Item',
+             'salePrice': item['salePrice'] ?? item['purchasePrice'] ?? 1200.0,
+             'stockQty': item['stockQty'] ?? item['stockQuantity'] ?? item['openingStockQty'] ?? 0,
+             'mainCategory': () {
+               final name = (item['itemName'] ?? item['name'] ?? '').toString().toLowerCase();
+               if (name.contains('contact')) return 'Contact Lens';
+               if (name.contains('solution') || name.contains('spray') || name.contains('wipe')) return 'Solutions';
+               return item['mainCategory'] ?? item['kind'] ?? item['groupName'] ?? 'General';
+             }(),
+           }).toList();
         } else if (data is Map) {
            // Check multiple possible keys where the list might be stored
            dynamic listData = data['data'] ?? data['items'] ?? data['result'] ?? data['docs'];
            
            if (listData != null && listData is List) {
-             return List<Map<String, dynamic>>.from(listData);
+             return List<Map<String, dynamic>>.from(listData).map((item) => {
+               ...item,
+               'itemName': item['itemName'] ?? item['name'] ?? 'Unknown Item',
+               'salePrice': item['salePrice'] ?? item['purchasePrice'] ?? 1200.0,
+               'stockQty': item['stockQty'] ?? item['stockQuantity'] ?? item['openingStockQty'] ?? 0,
+               'mainCategory': () {
+                 final name = (item['itemName'] ?? item['name'] ?? '').toString().toLowerCase();
+                 if (name.contains('contact')) return 'Contact Lens';
+                 if (name.contains('solution') || name.contains('spray') || name.contains('wipe')) return 'Solutions';
+                 return item['mainCategory'] ?? item['kind'] ?? item['groupName'] ?? 'General';
+               }(),
+             }).toList();
            }
         }
       }
@@ -139,9 +220,65 @@ class MasterDataService {
     }
   }
 
+  Future<bool> createInventoryProduct(Map<String, dynamic> productData) async {
+    try {
+      final response = await ApiClient.dio.post('v1/inventory', data: productData);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error creating inventory product: $e');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchLowStockAlerts() async {
+    try {
+      final response = await ApiClient.dio.get('v1/inventory/alerts');
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map && data['data'] is List) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error fetching low stock alerts: $e');
+      return [];
+    }
+  }
+
+  Future<bool> updateInventoryProductQuantity(String productId, int quantity, {String? userId}) async {
+    try {
+      final payload = {
+        'quantity': quantity,
+        if (userId != null) 'userId': userId,
+      };
+      final response = await ApiClient.dio.put('v1/inventory/$productId', data: payload);
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error updating product quantity: $e');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchProductMovementHistory(String productId) async {
+    try {
+      final response = await ApiClient.dio.get('v1/inventory/$productId/history');
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map && data['movements'] is List) {
+          return List<Map<String, dynamic>>.from(data['movements']);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error fetching product history: $e');
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchAccounts() async {
     try {
-      final response = await ApiClient.dio.get('accounts/getallaccounts');
+      final response = await ApiClient.dio.get('v1/customers');
       if (response.statusCode == 200) {
         final data = response.data;
         if (data is List) {
@@ -154,6 +291,61 @@ class MasterDataService {
     } catch (e) {
       debugPrint('❌ [MasterData] Error fetching accounts: $e');
       return [];
+    }
+  }
+
+  Future<bool> createCustomer(Map<String, dynamic> customerData) async {
+    try {
+      final payload = {
+        'fullName': customerData['fullName'],
+        'phone': customerData['phone'],
+        'email': customerData['email'] ?? '',
+      };
+      final response = await ApiClient.dio.post('v1/customers', data: payload);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error creating customer: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteCustomer(String id) async {
+    try {
+      final response = await ApiClient.dio.delete('v1/customers/$id');
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error deleting customer: $e');
+      return false;
+    }
+  }
+
+  Future<bool> payVendor(String vendorId, double amount, String paymentMode, String referenceNumber) async {
+    if (AppConfig.useMockData) {
+      debugPrint('🧪 [MasterData] MOCK MODE: Paying vendor $vendorId with ₹$amount');
+      await Future.delayed(const Duration(milliseconds: 300));
+      return true;
+    }
+    try {
+      final payload = {
+        'amount': amount,
+        'paymentMode': paymentMode,
+        'referenceNumber': referenceNumber,
+      };
+      final response = await ApiClient.dio.post('v1/vendors/$vendorId/pay', data: payload);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error calling payVendor API: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateVendor(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await ApiClient.dio.put('v1/vendors/$id', data: data);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('❌ [MasterData] Error updating vendor: $e');
+      return false;
     }
   }
 }

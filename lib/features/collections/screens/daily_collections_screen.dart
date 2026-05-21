@@ -4,7 +4,8 @@ import '../services/collection_service.dart';
 import 'collection_breakdown_detail_screen.dart';
 
 class DailyCollectionsScreen extends StatefulWidget {
-  const DailyCollectionsScreen({super.key});
+  final bool isMonthly;
+  const DailyCollectionsScreen({super.key, this.isMonthly = false});
 
   @override
   State<DailyCollectionsScreen> createState() => _DailyCollectionsScreenState();
@@ -18,6 +19,9 @@ class _DailyCollectionsScreenState extends State<DailyCollectionsScreen> {
   double _cash = 0;
   double _bank = 0;
   double _expenses = 0;
+  double _sales = 0;
+  double _purchase = 0;
+  double _profit = 0;
   Map<String, dynamic> _details = {};
 
   @override
@@ -29,14 +33,16 @@ class _DailyCollectionsScreenState extends State<DailyCollectionsScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final Map<String, dynamic> summary = await _collectionService.fetchDailySummary(_selectedDate);
-      final double expenses = await _collectionService.fetchDailyExpenses(_selectedDate);
+      final Map<String, dynamic> summary = await _collectionService.fetchDailySummary(_selectedDate, isMonthly: widget.isMonthly);
       
       setState(() {
         _cash = (summary['cash'] ?? 0.0).toDouble();
         _bank = (summary['bank'] ?? 0.0).toDouble();
+        _sales = (summary['sales'] ?? 0.0).toDouble();
+        _purchase = (summary['purchase'] ?? 0.0).toDouble();
+        _profit = (summary['profit'] ?? 0.0).toDouble();
+        _expenses = (summary['expenses'] ?? 0.0).toDouble();
         _details = Map<String, dynamic>.from(summary['details'] ?? {});
-        _expenses = expenses;
         _isLoading = false;
       });
     } catch (e) {
@@ -66,7 +72,7 @@ class _DailyCollectionsScreenState extends State<DailyCollectionsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FE),
       appBar: AppBar(
-        title: const Text('Day Book & Cash Tracking'),
+        title: Text(widget.isMonthly ? 'Month Book & Cash Tracking' : 'Day Book & Cash Tracking'),
         actions: [
           IconButton(onPressed: _pickDate, icon: const Icon(Icons.calendar_month)),
           IconButton(onPressed: _loadData, icon: const Icon(Icons.refresh)),
@@ -78,7 +84,7 @@ class _DailyCollectionsScreenState extends State<DailyCollectionsScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Text('$formattedDate Summary', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+            Text(widget.isMonthly ? '01-${DateFormat('MMM-yyyy').format(_selectedDate)} to $formattedDate Summary' : '$formattedDate Summary', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
             const SizedBox(height: 20),
             
             // Grand Total Card (Cash-in-Hand)
@@ -96,7 +102,7 @@ class _DailyCollectionsScreenState extends State<DailyCollectionsScreen> {
               ),
               child: Column(
                 children: [
-                  const Text('Net Cash in Hand', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+                  Text(widget.isMonthly ? 'Net Revenue (Month-to-Date)' : 'Net Cash in Hand', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 12),
                   Text('₹${netInHand.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
@@ -120,31 +126,32 @@ class _DailyCollectionsScreenState extends State<DailyCollectionsScreen> {
                   _buildRow('Total Cash Received', '₹${_cash.toStringAsFixed(2)}', Colors.green),
                   _buildRow('UPI / Bank / Card', '₹${_bank.toStringAsFixed(2)}', Colors.blue),
                   const Divider(height: 1),
-                  _buildRow('Monthly Expenses Paid', '- ₹${_expenses.toStringAsFixed(2)}', Colors.red),
+                  _buildRow(widget.isMonthly ? 'Expenses Paid (Month-to-Date)' : 'Daily Expenses Paid', '- ₹${_expenses.toStringAsFixed(2)}', Colors.red),
                   const SizedBox(height: 12),
                 ],
               ),
             ),
 
             const SizedBox(height: 20),
-            
-            // Individual Bank Accounts (if any)
-            if (_details.keys.any((k) => k != 'CASH'))
-              Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Column(
-                  children: [
-                    const ListTile(
-                      title: Text('Account-wise Split', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                    ),
-                    const Divider(height: 1),
-                    ..._details.entries.where((e) => e.key != 'CASH').map((e) => 
-                      _buildRow(e.key, '₹${e.value.toStringAsFixed(2)}', Colors.blueGrey)
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
+
+            // Sells & Purchases Today Card
+            Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                children: [
+                  ListTile(
+                    title: Text(widget.isMonthly ? "Sells & Purchases (Month-to-Date)" : "Sells & Purchases Today", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+                    leading: const Icon(Icons.analytics_outlined, color: Color(0xFF1A237E)),
+                  ),
+                  const Divider(height: 1),
+                  _buildRow(widget.isMonthly ? "Monthly Sells (Sales)" : "Today's Sells (Sales)", '₹${_sales.toStringAsFixed(2)}', Colors.indigo),
+                  _buildRow(widget.isMonthly ? "Monthly Purchases" : "Today's Purchases", '₹${_purchase.toStringAsFixed(2)}', Colors.orange),
+                  const Divider(height: 1),
+                  _buildRow(widget.isMonthly ? "Net Profit (After Expenses)" : "Net Profit Today", '₹${_profit.toStringAsFixed(2)}', Colors.green),
+                  const SizedBox(height: 12),
+                ],
               ),
+            ),
           ],
         ),
       ),

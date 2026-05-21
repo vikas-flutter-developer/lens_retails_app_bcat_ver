@@ -15,9 +15,20 @@ class TaskService {
       return MockData.mockTasks;
     }
     try {
-      final response = await ApiClient.dio.get('mobile/tasks');
+      final response = await ApiClient.dio.get('v1/tasks');
       if (response.statusCode == 200) {
-        return response.data['data'] ?? [];
+        final data = response.data['data'] ?? [];
+        if (data is List) {
+          return data.map((t) {
+            if (t is! Map) return t;
+            return {
+              ...t,
+              '_id': t['_id'] ?? t['id'],
+              'assignedTo': t['assignedTo'] ?? t['assignedToStaff'] ?? {'name': 'Unassigned'},
+            };
+          }).toList();
+        }
+        return [];
       }
       return [];
     } catch (e) {
@@ -38,7 +49,7 @@ class TaskService {
     }
     try {
       final response = await ApiClient.dio.patch(
-        'mobile/tasks/$taskId',
+        'v1/tasks/$taskId',
         data: {'status': status},
       );
       return response.statusCode == 200;
@@ -63,9 +74,19 @@ class TaskService {
       return MockData.mockStaff;
     }
     try {
-      final response = await ApiClient.dio.get('mobile/tasks/staff');
+      final response = await ApiClient.dio.get('v1/employees/all/tasks');
       if (response.statusCode == 200) {
-        return response.data['data'] ?? [];
+        final data = response.data['data'] ?? [];
+        if (data is List) {
+          return data.map((s) {
+            if (s is! Map) return s;
+            return {
+              ...s,
+              '_id': s['_id'] ?? s['id'],
+            };
+          }).toList();
+        }
+        return [];
       }
       return [];
     } catch (e) {
@@ -86,10 +107,61 @@ class TaskService {
       return true;
     }
     try {
-      final response = await ApiClient.dio.post('mobile/tasks', data: taskData);
-      return response.statusCode == 201;
+      final response = await ApiClient.dio.post('v1/tasks', data: taskData);
+      return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       print('Error creating task: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateTask(String taskId, Map<String, dynamic> taskData) async {
+    if (AppConfig.useMockData) {
+      final index = MockData.mockTasks.indexWhere((t) => t['_id'].toString() == taskId);
+      if (index != -1) {
+        String assignedName = 'Unassigned';
+        try {
+          assignedName = MockData.mockStaff.firstWhere((s) => s['_id'] == taskData['assignedTo'])['name'];
+        } catch (_) {}
+        MockData.mockTasks[index] = {
+          ...MockData.mockTasks[index],
+          ...taskData,
+          'assignedTo': {'name': assignedName}
+        };
+        await _saveTasksLocally(MockData.mockTasks);
+        return true;
+      }
+      return false;
+    }
+    try {
+      final response = await ApiClient.dio.put(
+        'v1/tasks/$taskId',
+        data: taskData,
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error updating task: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteTask(String taskId) async {
+    if (AppConfig.useMockData) {
+      final index = MockData.mockTasks.indexWhere((t) => t['_id'].toString() == taskId);
+      if (index != -1) {
+        MockData.mockTasks.removeAt(index);
+        await _saveTasksLocally(MockData.mockTasks);
+        return true;
+      }
+      return false;
+    }
+    try {
+      final response = await ApiClient.dio.delete(
+        'v1/tasks/$taskId',
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error deleting task: $e');
       return false;
     }
   }

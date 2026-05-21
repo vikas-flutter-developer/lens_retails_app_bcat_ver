@@ -6,267 +6,84 @@ import '../../../core/mock/mock_data.dart';
 import 'package:flutter/foundation.dart';
 
 class AuthService {
-  // Test Credentials for Silent Auth
-  static const String _testEmail = 'branding@gmail.com';
-  static const String _testPassword = 'branding';
-  
   static String? lastError;
 
   Future<bool> login(String email, String password) async {
     lastError = null;
 
-    if (AppConfig.useMockData) {
-      debugPrint('🧪 [AuthService] MOCK MODE: Logging in as ${MockData.mockUser['name']}');
-      await Future.delayed(const Duration(milliseconds: 800)); // Simulate delay
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', MockData.mockUser['token']);
-      await prefs.setString('auth_user_name', MockData.mockUser['name']);
-      await prefs.setString('auth_user_email', MockData.mockUser['email']);
-      await prefs.setString('auth_user_id', MockData.mockUser['id']);
-      await prefs.setString('auth_company_id', MockData.mockUser['companyId']);
-      await prefs.setString('customerId', MockData.mockUser['accountId']);
-      return true;
-    }
-
     try {
-      debugPrint('🔐 [AuthService] Calling login API with accountId: $email');
-      final response = await ApiClient.dio.post(
-        'customer/login', // Use /api prefix to match production backend
-        data: {'accountId': email, 'password': password},
-      );
+      final response = await ApiClient.dio.post('v1/auth/login', data: {
+        'email': email,
+        'password': password,
+      });
 
-      debugPrint('🔐 [AuthService] Login response status: ${response.statusCode}');
-      debugPrint('🔐 [AuthService] Login response headers: ${response.headers}');
-      debugPrint('🔐 [AuthService] Login response BODY: ${response.data}');
+      final resData = response.data;
+      final data = resData['data'] ?? resData;
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = response.data;
+      final token = data['token']?.toString() ?? '';
+      final refreshToken = data['refreshToken']?.toString() ?? '';
+      final user = data['user'] is Map ? data['user'] : {};
+      final fullName = user['fullName']?.toString() ?? 'User';
+      final userEmail = user['email']?.toString() ?? email;
+      final userId = user['id']?.toString() ?? '';
+      final userRole = user['role']?.toString() ?? 'OWNER';
+      final subPlan = user['subscriptionPlan']?.toString() ?? '';
+      final subExpires = user['subscriptionExpiresAt']?.toString() ?? '';
 
-        String? token;
-        
-        // 1. Check Body for Token
-        if (data is Map<String, dynamic>) {
-          token = data['token'] ?? data['accessToken'] ?? data['access_token'];
-          if (token == null && data['data'] is Map) {
-            token = data['data']['token'] ?? data['data']['accessToken'];
-          }
-        }
-
-        // 2. Check Headers for Token (Common patterns)
-        if (token == null) {
-          final authHeader = response.headers.value('authorization');
-          if (authHeader != null && authHeader.toLowerCase().startsWith('bearer ')) {
-             token = authHeader.substring(7);
-          }
-          token ??= response.headers.value('x-auth-token');
-        }
-
-        debugPrint(
-          '🔐 [AuthService] Extracted token: ${token != null ? "Token Found" : "NO TOKEN FOUND"}',
-        );
-
-        if (token != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('auth_token', token);
-          
-          // Save User Data (Handle both camelCase and TitleCase from backend)
-          if (data is Map && (data['customer'] is Map || data['user'] is Map)) {
-             final userMap = data['customer'] ?? data['user'];
-             
-             // 1. Save Name
-             final name = userMap['name'] ?? userMap['Name'];
-             if (name != null) await prefs.setString('auth_user_name', name);
-             
-             // 2. Save Email
-             final emailValue = userMap['email'] ?? userMap['Email'];
-             if (emailValue != null) await prefs.setString('auth_user_email', emailValue);
-             
-             // 3. Save Mongo ID
-             final userId = userMap['id'] ?? userMap['_id'] ?? userMap['Id'];
-             if (userId != null) await prefs.setString('auth_user_id', userId.toString());
-             
-             // 3.1 Save Company ID
-             final compId = userMap['companyId'] ?? userMap['CompanyId'];
-             if (compId != null) await prefs.setString('auth_company_id', compId.toString());
-             
-             // 4. CRITICAL: Save Account ID (Phone/Code) for Order Linkage
-             // Backend returns 'AccountId' for customers
-             String? accId = userMap['accountId'] ?? userMap['AccountId'] ?? userMap['phone'] ?? userMap['accountCode'];
-             
-             // If not in response, use the input credential if it looks like a phone/id
-             if (accId == null && !email.contains('@')) {
-               accId = email; 
-             }
-             
-             if (accId != null) {
-               await prefs.setString('customerId', accId);
-               debugPrint('🔐 [AuthService] Account Linkage ID saved: $accId');
-             }
-             
-             // Save extra details for Profile Dialog
-             await _saveAdditionalUserData(userMap);
-          }
-          
-          debugPrint('🔐 [AuthService] Token & User Data saved to SharedPreferences');
-          return true;
-        } else {
-           // Fallback logic
-           if (data is Map && data['customer'] != null) {
-              // ... cookie logic ...
-              // Still try to save customerId if possible
-              final customer = data['customer'];
-              String? accId = customer['accountId'] ?? customer['phone'];
-              if (accId != null) {
-                 final prefs = await SharedPreferences.getInstance();
-                 await prefs.setString('customerId', accId);
-              }
-              
-              debugPrint('⚠️ [AuthService] Login successful (Customer found) but NO TOKEN detected.');
-              return true;
-           }
-           lastError = "Login succeeded but no token found.";
-        }
-      } else {
-        lastError = "Server Error: ${response.statusCode}";
-      }
-      return false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', token);
+      await prefs.setString('auth_refresh_token', refreshToken);
+      await prefs.setString('auth_user_name', fullName);
+      await prefs.setString('auth_user_email', userEmail);
+      await prefs.setString('auth_user_id', userId);
+      await prefs.setString('auth_user_role', userRole);
+      await prefs.setString('auth_subscription_plan', subPlan);
+      await prefs.setString('auth_subscription_expires_at', subExpires);
+      await prefs.setString('customerId', userId);
+      return true;
     } on DioException catch (e) {
-      debugPrint('🔐 [AuthService] Login DioException: ${e.response?.statusCode} - ${e.response?.data}');
-      debugPrint('🔐 [AuthService] Exception Type: ${e.type}');
-      debugPrint('🔐 [AuthService] Exception Message: ${e.message}');
-      debugPrint('🔐 [AuthService] Exception Error: ${e.error}');
-      if (e.response != null) {
-         if (e.response?.statusCode == 400 || e.response?.statusCode == 401) {
-            lastError = "Wrong Account ID or Password";
-         } else {
-            lastError = "API Error: ${e.response?.statusCode} ${e.response?.statusMessage}";
-         }
-      } else {
-         lastError = "Network Error: ${e.message}";
-      }
+      lastError = e.response?.data is Map
+          ? e.response?.data['message']?.toString() ?? 'Login failed'
+          : 'Login failed';
       return false;
     } catch (e) {
-      debugPrint('🔐 [AuthService] Login Error: $e');
-      lastError = "App Error: $e";
+      lastError = e.toString();
       return false;
     }
   }
 
-  /// Silently authenticates using hardcoded credentials to ensure internal APIs work
   Future<void> authenticateSilently() async {
-    try {
-      debugPrint('🔐 [AuthService] Attempting silent authentication...');
-      final success = await login(_testEmail, _testPassword);
-      if (success) {
-        debugPrint('🔓 [AuthService] Silent authentication successful!');
-      } else {
-        debugPrint('🔒 [AuthService] Silent authentication failed.');
-      }
-    } catch (e) {
-      debugPrint('🔒 [AuthService] Silent authentication error: $e');
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null || token.isEmpty) {
+      await login('retail.user@local', 'local');
     }
   }
 
-  /// Admin login using email/password via /api/auth/login endpoint
-  Future<bool> adminLogin(String email, String password, {String role = 'Admin'}) async {
-    lastError = null;
-
-    if (AppConfig.useMockData) {
-      debugPrint('🧪 [AuthService] MOCK MODE: Admin login as ${MockData.mockUser['name']}');
-      await Future.delayed(const Duration(milliseconds: 800));
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', MockData.mockUser['token']);
-      await prefs.setString('auth_user_name', MockData.mockUser['name']);
-      await prefs.setString('auth_user_role', 'Admin');
-      return true;
-    }
-
-    try {
-      debugPrint('🔐 [AuthService] Calling ADMIN login API with email: $email, role: $role');
-      final response = await ApiClient.dio.post(
-        'auth/login',
-        data: {'email': email, 'password': password, 'role': role},
-      );
-
-      debugPrint('🔐 [AuthService] Admin Login response status: ${response.statusCode}');
-      debugPrint('🔐 [AuthService] Admin Login response BODY: ${response.data}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = response.data;
-
-        String? token;
-        
-        // Extract token from response
-        if (data is Map<String, dynamic>) {
-          token = data['token'] ?? data['accessToken'] ?? data['access_token'];
-        }
-
-        // Check headers if not in body
-        if (token == null) {
-          final authHeader = response.headers.value('authorization');
-          if (authHeader != null && authHeader.toLowerCase().startsWith('bearer ')) {
-             token = authHeader.substring(7);
-          }
-        }
-
-        debugPrint('🔐 [AuthService] Admin token: ${token != null ? "Token Found" : "NO TOKEN FOUND"}');
-
-        if (token != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('auth_token', token);
-          
-          // Save Admin User Data
-          if (data is Map && data['user'] is Map) {
-             final user = data['user'];
-             if (user['name'] != null) await prefs.setString('auth_user_name', user['name']);
-             if (user['email'] != null) await prefs.setString('auth_user_email', user['email']);
-             if (user['role'] != null) await prefs.setString('auth_user_role', user['role']);
-             
-             // Save Admin ID
-             final userId = user['id'] ?? user['_id'];
-             if (userId != null) await prefs.setString('auth_user_id', userId.toString());
-             
-             // Save Company ID
-             final compId = user['companyId'] ?? user['CompanyId'];
-             if (compId != null) await prefs.setString('auth_company_id', compId.toString());
-             
-             debugPrint('🔐 [AuthService] Admin user data saved: ${user['name']} (${user['role']})');
-          }
-          
-          debugPrint('🔐 [AuthService] Admin Token & User Data saved to SharedPreferences');
-          return true;
-        } else {
-           lastError = "Login succeeded but no token found.";
-        }
-      } else {
-        lastError = "Server Error: ${response.statusCode}";
-      }
-      return false;
-    } on DioException catch (e) {
-      debugPrint('🔐 [AuthService] Admin Login DioException: ${e.response?.statusCode} - ${e.response?.data}');
-      debugPrint('🔐 [AuthService] Admin Exception Type: ${e.type}');
-      debugPrint('🔐 [AuthService] Admin Exception Message: ${e.message}');
-      debugPrint('🔐 [AuthService] Admin Exception Error: ${e.error}');
-      if (e.response != null) {
-         if (e.response?.statusCode == 400 || e.response?.statusCode == 401) {
-            lastError = "Wrong Email or Password";
-         } else {
-            lastError = "API Error: ${e.response?.statusCode} ${e.response?.statusMessage}";
-         }
-      } else {
-         lastError = "Network Error: ${e.message}";
-      }
-      return false;
-    } catch (e) {
-      debugPrint('🔐 [AuthService] Admin Login Error: $e');
-      lastError = "App Error: $e";
-      return false;
-    }
+  Future<bool> adminLogin(String email, String password, {String role = 'OWNER'}) async {
+    final ok = await login(email, password);
+    if (!ok) return false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_user_role', role);
+    return true;
   }
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
+    final refreshToken = prefs.getString('auth_refresh_token');
+    
+    if (!AppConfig.useMockData && refreshToken != null && refreshToken.isNotEmpty) {
+      try {
+        await ApiClient.dio.post('v1/auth/logout', data: {
+          'refreshToken': refreshToken,
+        });
+      } catch (e) {
+        debugPrint('Logout API call failed: $e');
+      }
+    }
+
     await prefs.remove('auth_token');
+    await prefs.remove('auth_refresh_token');
     await prefs.remove('auth_user_name');
     await prefs.remove('auth_user_email');
     await prefs.remove('auth_user_role');
@@ -275,6 +92,105 @@ class AuthService {
     await prefs.remove('customerId');
   }
 
+  Future<bool> refreshAuthToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString('auth_refresh_token');
+      if (refreshToken == null || refreshToken.isEmpty) return false;
+
+      if (AppConfig.useMockData) {
+        await prefs.setString('auth_token', 'mock_refreshed_token_54321');
+        return true;
+      }
+
+      final response = await ApiClient.dio.post('v1/auth/refresh', data: {
+        'refreshToken': refreshToken,
+      });
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final resData = response.data;
+        final data = resData['data'] ?? resData;
+        final newToken = data['token']?.toString() ?? '';
+        if (newToken.isNotEmpty) {
+          await prefs.setString('auth_token', newToken);
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error refreshing token: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final response = await ApiClient.dio.post('v1/auth/forgot-password', data: {
+        'email': email,
+      });
+
+      final resData = response.data;
+      final data = resData['data'] ?? resData;
+
+      return {
+        'success': resData['success'] ?? true,
+        'message': resData['message'] ?? 'Reset link sent to email',
+        'resetToken': (data is Map ? data['resetToken'] : null) ?? resData['resetToken']?.toString(),
+      };
+    } catch (e) {
+      if (e is DioException) {
+        final resData = e.response?.data;
+        String errMsg = 'Failed to send reset link';
+        if (resData is Map) {
+          errMsg = resData['message']?.toString() ?? 'Failed to send reset link';
+        }
+        
+        // Custom user-friendly mapping for wrong/unregistered email addresses
+        if (e.response?.statusCode == 404 || 
+            errMsg.toLowerCase().contains('not found') || 
+            errMsg.toLowerCase().contains('no user') || 
+            errMsg.toLowerCase().contains('invalid email')) {
+          errMsg = 'This email address is not registered with us. Please check your spelling or register a new account.';
+        }
+
+        return {
+          'success': false,
+          'message': errMsg,
+        };
+      }
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> resetPassword(String token, String newPassword) async {
+    try {
+      final response = await ApiClient.dio.post('v1/auth/reset-password', data: {
+        'token': token,
+        'newPassword': newPassword,
+      });
+
+      return {
+        'success': response.data['success'] ?? true,
+        'message': response.data['message'] ?? 'Password reset successful',
+      };
+    } catch (e) {
+      if (e is DioException) {
+        return {
+          'success': false,
+          'message': e.response?.data is Map
+              ? e.response?.data['message']?.toString() ?? 'Password reset failed'
+              : 'Password reset failed',
+        };
+      }
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -298,20 +214,17 @@ class AuthService {
 
   Future<String?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // Prioritize the Account ID (Phone) which we store as 'customerId'
-    String? accountId = prefs.getString('customerId');
-    
-    // If accountId is null or looks like a Mongo ID (24 hex chars), 
-    // and we have a separate phone number saved, use that.
-    if (accountId == null || (accountId.length == 24 && RegExp(r'^[0-9a-fA-F]+$').hasMatch(accountId))) {
-       final mobile = prefs.getString('auth_user_mobile');
-       if (mobile != null && mobile.isNotEmpty) {
-          return mobile;
-       }
-    }
-    
-    return accountId ?? prefs.getString('auth_user_id'); 
+    return prefs.getString('customerId') ?? prefs.getString('auth_user_id');
+  }
+
+  Future<String?> getSubscriptionPlan() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_subscription_plan');
+  }
+
+  Future<String?> getSubscriptionExpiresAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_subscription_expires_at');
   }
 
   Future<Map<String, String?>> getUserDetails() async {
@@ -322,241 +235,195 @@ class AuthService {
       'pincode': prefs.getString('auth_user_pincode'),
       'gstin': prefs.getString('auth_user_gstin'),
       'cardNumber': prefs.getString('auth_user_card'),
-      // Note: We don't store password for security, but user requested it. 
-      // We will check if it's available or return null.
     };
   }
 
-  Future<void> _saveAdditionalUserData(Map<String, dynamic> customer) async {
-     final prefs = await SharedPreferences.getInstance();
-     
-     // Support both TitleCase (Original) and lowercase (Production API Sample)
-     final address = customer['address'] ?? customer['Address'];
-     final state = customer['state'] ?? customer['State'];
-     final pincode = customer['pincode'] ?? customer['Pincode'];
-     final gstin = customer['gstin'] ?? customer['GSTIN'];
-     final cardNumber = customer['cardNumber'] ?? customer['CardNumber'];
-     final mobile = customer['mobileNumber'] ?? customer['MobileNumber'];
-
-     if (address != null) await prefs.setString('auth_user_address', address);
-     if (state != null) await prefs.setString('auth_user_state', state);
-     if (pincode != null) await prefs.setString('auth_user_pincode', pincode.toString());
-     if (gstin != null) await prefs.setString('auth_user_gstin', gstin);
-     if (cardNumber != null) await prefs.setString('auth_user_card', cardNumber);
-     if (mobile != null) await prefs.setString('auth_user_mobile', mobile);
-  }
-
-
-
-  /// Register a new retailer account
   Future<Map<String, dynamic>> register({
     required String name,
     required String email,
     required String phone,
     required String password,
+    required String role,
   }) async {
     try {
-      debugPrint('📝 [AuthService] Registration Flow Started');
+      final response = await ApiClient.dio.post('v1/auth/register', data: {
+        'fullName': name,
+        'email': email,
+        'password': password,
+        'role': role,
+      });
 
-      // 1. SILENT ADMIN LOGIN
-      // We need an Admin Token to create an account.
-      // Using credentials from `spec.md` (and JSON collection)
-      debugPrint('🔄 [AuthService] 1. Acquiring Admin Access...');
-      final adminLoginResponse = await ApiClient.dio.post(
-        'auth/login',
-        data: {'email': 'branding@gmail.com', 'password': 'branding'},
-      );
-      
-      String? adminToken;
-      if (adminLoginResponse.statusCode == 200) {
-        final data = adminLoginResponse.data;
-        adminToken = data['token'] ?? data['accessToken'];
-        if (adminToken == null && adminLoginResponse.headers.value('authorization') != null) {
-           adminToken = adminLoginResponse.headers.value('authorization')?.replaceAll('Bearer ', '');
-        }
-      }
-      
-      if (adminToken == null) {
-         throw Exception('Failed to acquire Admin Access (Token null)');
-      }
-      debugPrint('✅ [AuthService] Admin Access Granted');
-
-      // 2. CREATE ACCOUNT
-      debugPrint('📝 [AuthService] 2. Creating Account: $name / $phone');
-      
-      // Construct Payload based on User's Sample
-      final payload = {
-        "Name": name,
-        "Alias": "",
-        "PrintName": name,
-        "AccountId": phone, // Using Phone as unique Account ID
-        "Groups": ["RETAILER"],
-        "AccountCategory": "",
-        "AccountDealerType": "Registerd",
-        "AccountType": "",
-        "Address": "",
-        "AdharCardNumber": 0,
-        "CardNumber": "",
-        "ContactPerson": name,
-        "CreditLimit": 0,
-        "CstNumber": 0,
-        "DayLimit": "",
-        "Distance": "",
-        "Dnd": "",
-        "Email": email,
-        "EnableLoyality": "Y",
-        "Ex1": "",
-        "GSTIN": "",
-        "ItPlan": "",
-        "LstNumber": 0,
-        "MobileNumber": phone,
-        "OpeningBalance": {"balance": 0, "type": "Dr"},
-        "Password": password,
-        "Pincode": "",
-        "PreviousYearBalance": {"balance": 0, "type": "Dr"},
-        "State": "Maharashtra",
-        "Stations": ["Main"], // Backend requires at least one station
-        "TelNumber": "",
-        "Transporter": ""
-      };
-
-      final createResponse = await ApiClient.dio.post(
-        'accounts/add-account',
-        data: payload,
-        options: Options(
-          headers: {'Authorization': 'Bearer $adminToken'}, // Explicitly use Admin Token
-        ),
-      );
-
-      debugPrint('📝 [AuthService] Add-Account Response: ${createResponse.statusCode}');
-
-      if (createResponse.statusCode == 200 || createResponse.statusCode == 201) {
-        debugPrint('✅ [AuthService] Account Created Successfully!');
-        
-        // 3. AUTO-LOGIN AS USER
-        debugPrint('🔄 [AuthService] 3. logging in as new user...');
-        await Future.delayed(const Duration(milliseconds: 500)); // Sync wait
-        
-        // We log in normally, which will save the USER token to SharedPreferences
-        // effectively "logging out" the admin and "logging in" the user in the app state.
-        final loginSuccess = await login(email, password); // Note: Login usually uses Email or AccountId
-        
-        // Fallback: Try Login with Phone if Email fail (Backend ambiguity)
-        if (!loginSuccess) {
-           debugPrint('⚠️ [AuthService] Email Login failed. Trying Phone Login...');
-           await login(phone, password);
-        }
-        
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return {
           'success': true,
-          'customerId': phone,
-          'name': name,
-          'email': email,
-          'message': 'Account created & logged in!',
+          'message': response.data['message'] ?? 'Account created successfully',
         };
       }
-      
+
       return {
         'success': false,
-        'message': 'Registration failed: Status ${createResponse.statusCode}',
-      };
-    } on DioException catch (e) {
-      debugPrint('❌ [AuthService] Registration error: ${e.response?.data}');
-      
-      String errorMessage = 'Registration failed';
-      if (e.response?.data is Map && e.response?.data['message'] != null) {
-        errorMessage = e.response?.data['message'];
-      } else if (e.response?.statusCode == 409) {
-          errorMessage = 'Account ID already exists.';
-      } else if (e.response?.statusCode == 401) {
-          errorMessage = 'Server Authorization Failed (Admin).';
-      } else if (e.response?.statusCode == 500) {
-        errorMessage = 'Server error. Please try again later.';
-      }
-      
-      return {
-        'success': false,
-        'message': errorMessage,
+        'message': response.data['message'] ?? 'Registration failed',
       };
     } catch (e) {
-      debugPrint('❌ [AuthService] Unexpected registration error: $e');
+      if (e is DioException) {
+        return {
+          'success': false,
+          'message': e.response?.data is Map
+              ? e.response?.data['message']?.toString() ?? 'Registration failed'
+              : 'Registration failed',
+        };
+      }
       return {
         'success': false,
-        'message': 'Unexpected error: $e',
+        'message': e.toString(),
       };
     }
   }
 
-  /// Updates the retailer profile (GSTIN, Address, etc.)
-  /// Uses silent admin login to permit the update.
-  Future<Map<String, dynamic>> updateRetailerProfile(Map<String, dynamic> updates) async {
+  Future<Map<String, dynamic>> createRazorpayOrder({
+    required double amount,
+    String? name,
+    String? email,
+    String? phone,
+    String? subscriptionPlan,
+  }) async {
     try {
-      debugPrint('📝 [AuthService] Update Profile Started');
-      
-      // 1. Get current User ID (Mongo ID)
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('auth_user_id');
-      
-      if (userId == null) throw Exception('User ID not found');
-
-      // 2. Silent Admin Login (Reuse existing pattern)
-      debugPrint('🔄 [AuthService] Acquiring Admin Access for Update...');
-      final adminLoginResponse = await ApiClient.dio.post(
-        'auth/login',
-        data: {'email': 'branding@gmail.com', 'password': 'branding'},
-      );
-      
-      String? adminToken;
-      if (adminLoginResponse.statusCode == 200) {
-        final data = adminLoginResponse.data;
-        adminToken = data['token'] ?? data['accessToken'];
-      }
-      
-      if (adminToken == null) throw Exception('Failed to acquire Admin Token');
-
-      // 3. Construct Update Payload
-      // We map UI keys to Backend keys
-      final payload = <String, dynamic>{};
-      
-      // If we are updating specific fields, map them to backend schema
-      if (updates.containsKey('address')) payload['Address'] = updates['address'];
-      if (updates.containsKey('state')) payload['State'] = updates['state'];
-      if (updates.containsKey('pincode')) payload['Pincode'] = updates['pincode'];
-      if (updates.containsKey('city')) payload['City'] = updates['city']; // Added City just in case
-      if (updates.containsKey('gstin')) payload['GSTIN'] = updates['gstin'];
-      if (updates.containsKey('cardNumber')) payload['CardNumber'] = updates['cardNumber'];
-      if (updates.containsKey('name')) {
-         payload['Name'] = updates['name'];
-         payload['PrintName'] = updates['name'];
-         payload['ContactPerson'] = updates['name'];
-      }
-      
-      debugPrint('📝 [AuthService] Updating Account $userId with payload: $payload');
-
-      final response = await ApiClient.dio.put(
-        '/api/accounts/update/$userId',
-        data: payload,
-        options: Options(headers: {'Authorization': 'Bearer $adminToken'}),
-      );
+      final response = await ApiClient.dio.post('v1/auth/payment/create-order', data: {
+        'amount': amount,
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'subscriptionPlan': subscriptionPlan,
+      });
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-         debugPrint('✅ [AuthService] Update Successful');
-         
-         // 4. Update Local Storage immediately
-         if (payload['Address'] != null) await prefs.setString('auth_user_address', payload['Address']);
-         if (payload['State'] != null) await prefs.setString('auth_user_state', payload['State']);
-         if (payload['Pincode'] != null) await prefs.setString('auth_user_pincode', payload['Pincode']);
-         if (payload['GSTIN'] != null) await prefs.setString('auth_user_gstin', payload['GSTIN']);
-         if (payload['CardNumber'] != null) await prefs.setString('auth_user_card', payload['CardNumber']);
-         if (payload['Name'] != null) await prefs.setString('auth_user_name', payload['Name']);
-         
-         return {'success': true};
+        final resData = response.data;
+        final data = resData['data'] ?? resData;
+        return {
+          'success': true,
+          'id': data['id'],
+          'amount': data['amount'],
+          'currency': data['currency'],
+          'keyId': data['keyId'],
+        };
       }
-      
-      return {'success': false, 'message': 'Update failed: ${response.statusCode}'};
-      
+
+      return {
+        'success': false,
+        'message': response.data['message'] ?? 'Failed to create Razorpay order',
+      };
     } catch (e) {
-      debugPrint('❌ [AuthService] Update Error: $e');
+      if (e is DioException) {
+        return {
+          'success': false,
+          'message': e.response?.data is Map
+              ? e.response?.data['message']?.toString() ?? 'Failed to create Razorpay order'
+              : 'Failed to create Razorpay order',
+        };
+      }
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyPaymentAndRegister({
+    required String orderId,
+    required String paymentId,
+    required String signature,
+    required Map<String, dynamic> userData,
+    required String subscriptionPlan,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString('auth_user_name') ?? '';
+      final savedEmail = prefs.getString('auth_user_email') ?? '';
+
+      final response = await ApiClient.dio.post('v1/auth/payment/verify-register', data: {
+        'razorpay_order_id': orderId,
+        'razorpay_payment_id': paymentId,
+        'razorpay_signature': signature,
+        'userData': {
+          'fullName': userData['name'] ?? savedName,
+          'email': userData['email'] ?? savedEmail,
+          'password': userData['password'] ?? 'RENEWAL_DUMMY_PASSWORD',
+          'role': userData['role'] ?? 'OWNER',
+          'phone': userData['phone'],
+          'shopName': userData['shopName'],
+          'address': userData['address'],
+          'subscriptionPlan': subscriptionPlan,
+        },
+      });
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': response.data['message'] ?? 'Payment verified and account created',
+        };
+      }
+
+      return {
+        'success': false,
+        'message': response.data['message'] ?? 'Payment verification or registration failed',
+      };
+    } catch (e) {
+      if (e is DioException) {
+        return {
+          'success': false,
+          'message': e.response?.data is Map
+              ? e.response?.data['message']?.toString() ?? 'Payment verification or registration failed'
+              : 'Payment verification or registration failed',
+        };
+      }
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getOwners() async {
+    try {
+      final response = await ApiClient.dio.get('v1/auth/owners');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final resData = response.data;
+        final rawData = resData['data'] ?? resData;
+        final List<Map<String, dynamic>> owners = [];
+        
+        if (rawData is List) {
+          for (var item in rawData) {
+            if (item is Map<String, dynamic>) {
+              owners.add(item);
+            }
+          }
+        } else if (rawData is Map) {
+          rawData.forEach((key, value) {
+            if (value is Map<String, dynamic>) {
+              owners.add(Map<String, dynamic>.from(value));
+            }
+          });
+        }
+        return owners;
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching owners: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> updateRetailerProfile(Map<String, dynamic> updates) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (updates.containsKey('address')) await prefs.setString('auth_user_address', updates['address'] ?? '');
+      if (updates.containsKey('state')) await prefs.setString('auth_user_state', updates['state'] ?? '');
+      if (updates.containsKey('pincode')) await prefs.setString('auth_user_pincode', updates['pincode']?.toString() ?? '');
+      if (updates.containsKey('gstin')) await prefs.setString('auth_user_gstin', updates['gstin'] ?? '');
+      if (updates.containsKey('cardNumber')) await prefs.setString('auth_user_card', updates['cardNumber'] ?? '');
+      if (updates.containsKey('name')) await prefs.setString('auth_user_name', updates['name'] ?? '');
+      return {'success': true};
+    } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
   }

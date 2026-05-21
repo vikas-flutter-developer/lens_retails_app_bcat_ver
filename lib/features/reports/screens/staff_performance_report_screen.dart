@@ -81,15 +81,17 @@ class _StaffPerformanceScreenState extends State<StaffPerformanceScreen> {
 
   Widget _buildPerformanceCard(Map<String, dynamic> staff) {
     final String name = staff['name'] ?? 'Unknown';
-    final int total = staff['totalTasks'] ?? 0;
-    final int completed = staff['completedTasks'] ?? 0;
-    final int pending = total - completed;
-    final double percentage = total > 0 ? (completed / total) : 0.0;
+    final String role = staff['role'] ?? 'Staff';
+    final int completed = staff['tasksCompleted'] ?? 0;
+    final double sales = (staff['salesGenerated'] ?? 0).toDouble();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.05),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -97,9 +99,10 @@ class _StaffPerformanceScreenState extends State<StaffPerformanceScreen> {
               children: [
                 CircleAvatar(
                   backgroundColor: const Color(0xFF1A237E),
-                  child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  radius: 24,
+                  child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,42 +112,37 @@ class _StaffPerformanceScreenState extends State<StaffPerformanceScreen> {
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
                       ),
                       Text(
-                        'Total Tasks: $total',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                        role,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _getPercentageColor(percentage).withOpacity(0.1),
+                    color: const Color(0xFF1A237E).withOpacity(0.05),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    '${(percentage * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(color: _getPercentageColor(percentage), fontWeight: FontWeight.bold),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.star, color: Colors.amber, size: 16),
+                      SizedBox(width: 4),
+                      Text(
+                        'Active',
+                        style: TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: percentage,
-                minHeight: 10,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(_getPercentageColor(percentage)),
-              ),
-            ),
-            const SizedBox(height: 16),
+            const Divider(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildStatItem('COMPLETED', completed.toString(), Colors.green),
-                _buildStatItem('PENDING', pending.toString(), Colors.orange),
-                _buildStatItem('SUCCESS RATE', '${(percentage * 100).toStringAsFixed(0)}%', Colors.blue),
+                _buildStatItem('SALES GENERATED', '₹${sales.toStringAsFixed(0)}', Colors.green, Icons.payments_outlined),
+                _buildStatItem('COMPLETED TASKS', '$completed', Colors.indigo, Icons.done_all),
               ],
             ),
           ],
@@ -153,25 +151,37 @@ class _StaffPerformanceScreenState extends State<StaffPerformanceScreen> {
     );
   }
 
-  Widget _buildStatItem(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500], letterSpacing: 1),
+  Widget _buildStatItem(String label, String value, Color color, IconData icon) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.1)),
         ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey[600], letterSpacing: 0.8),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color),
+            ),
+          ],
         ),
-      ],
+      ),
     );
-  }
-
-  Color _getPercentageColor(double percentage) {
-    if (percentage >= 0.8) return Colors.green;
-    if (percentage >= 0.5) return Colors.orange;
-    return Colors.red;
   }
 }

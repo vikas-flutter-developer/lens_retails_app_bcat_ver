@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:flutter/foundation.dart';
+import '../services/auth_service.dart';
+import '../../../core/utils/auth_snackbar.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -14,11 +18,87 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   String _selectedPlan = '1 Year';
   bool _isProcessing = false;
   String? _userName;
+  late Razorpay _razorpay;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _initRazorpay();
+  }
+
+  void _initRazorpay() {
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) {
+    _onPaymentVerified(
+      response.orderId ?? '',
+      response.paymentId ?? '',
+      response.signature ?? '',
+    );
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (mounted) {
+      setState(() => _isProcessing = false);
+      AuthSnackBar.show(
+        context,
+        title: 'Payment Failed',
+        message: response.message ?? 'Payment was cancelled or failed.',
+        type: AuthSnackBarType.error,
+      );
+    }
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    // Optional external wallet handler
+  }
+
+  Future<void> _onPaymentVerified(String orderId, String paymentId, String signature) async {
+    try {
+      final authService = AuthService();
+      final result = await authService.verifyPaymentAndRegister(
+        orderId: orderId,
+        paymentId: paymentId,
+        signature: signature,
+        userData: widget.userData,
+        subscriptionPlan: _selectedPlan,
+      );
+
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        if (result['success'] == true) {
+          _showSuccessDialog();
+        } else {
+          AuthSnackBar.show(
+            context,
+            title: 'Registration Failed',
+            message: result['message'] ?? 'Unable to complete your registration.',
+            type: AuthSnackBarType.error,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        AuthSnackBar.show(
+          context,
+          title: 'Verification Error',
+          message: e.toString(),
+          type: AuthSnackBarType.error,
+        );
+      }
+    }
   }
 
   Future<void> _loadUser() async {
@@ -32,22 +112,22 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   final List<Map<String, dynamic>> _plans = [
     {
-      'title': '3 Months',
-      'price': '₹999',
-      'subtitle': 'Quarterly Plan',
-      'icon': Icons.calendar_today_rounded,
-      'features': ['Basic Dashboard', '500 Orders/Month', 'Support'],
+      'title': '1 Month',
+      'price': '₹1',
+      'subtitle': 'Monthly Plan',
+      'icon': Icons.calendar_month_rounded,
+      'features': ['Basic Dashboard', '150 Orders/Month', 'Support'],
     },
     {
       'title': '6 Months',
-      'price': '₹1799',
+      'price': '₹1',
       'subtitle': 'Half Yearly Plan',
       'icon': Icons.date_range_rounded,
       'features': ['Pro Dashboard', '1500 Orders/Month', 'Priority Support'],
     },
     {
       'title': '1 Year',
-      'price': '₹2999',
+      'price': '₹1',
       'subtitle': 'Annual Best Value',
       'icon': Icons.event_available_rounded,
       'features': ['Unlimited Everything', 'Custom Reports', '24/7 Support'],
@@ -56,11 +136,94 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Future<void> _processPayment() async {
     setState(() => _isProcessing = true);
-    // Simulate payment processing
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      setState(() => _isProcessing = false);
-      _showSuccessDialog();
+
+    // Extract price cleanly
+    final plan = _plans.firstWhere((p) => p['title'] == _selectedPlan);
+    final priceString = plan['price'].toString().replaceAll(RegExp(r'[^0-9]'), '');
+    final amount = double.tryParse(priceString) ?? 1.0;
+
+    // Detect platform
+    final isMobile = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+
+    if (!isMobile) {
+      // Simulation mode for Desktop & Web
+      await Future.delayed(const Duration(seconds: 2));
+      if (widget.userData.isNotEmpty) {
+        final authService = AuthService();
+        final result = await authService.register(
+          name: widget.userData['name'] ?? '',
+          email: widget.userData['email'] ?? '',
+          phone: widget.userData['phone'] ?? '',
+          password: widget.userData['password'] ?? '',
+          role: widget.userData['role'] ?? 'OWNER',
+        );
+
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          if (result['success'] == true) {
+            _showSuccessDialog();
+          } else {
+            AuthSnackBar.show(
+              context,
+              title: 'Registration Failed (Simulated)',
+              message: result['message'] ?? 'Unable to create your account.',
+              type: AuthSnackBarType.error,
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          _showSuccessDialog();
+        }
+      }
+      return;
+    }
+
+    // Real Razorpay integration for Mobile
+    try {
+      final authService = AuthService();
+      final orderResult = await authService.createRazorpayOrder(amount: amount);
+
+      if (orderResult['success'] == true) {
+        final orderId = orderResult['id']?.toString() ?? '';
+        final keyId = orderResult['keyId']?.toString() ?? 'rzp_live_SoqYaLiOI6KmXVV';
+        final amountInPaise = orderResult['amount'] as int? ?? (amount * 100).toInt();
+
+        var options = {
+          'key': keyId,
+          'amount': amountInPaise,
+          'name': 'Retail Lens',
+          'order_id': orderId,
+          'description': 'Subscription Plan - $_selectedPlan',
+          'prefill': {
+            'contact': widget.userData['phone'] ?? '',
+            'email': widget.userData['email'] ?? '',
+          }
+        };
+
+        _razorpay.open(options);
+      } else {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          AuthSnackBar.show(
+            context,
+            title: 'Order Creation Failed',
+            message: orderResult['message'] ?? 'Could not create payment order.',
+            type: AuthSnackBarType.error,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        AuthSnackBar.show(
+          context,
+          title: 'Payment Initialization Error',
+          message: e.toString(),
+          type: AuthSnackBarType.error,
+        );
+      }
     }
   }
 
@@ -124,9 +287,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('Select Subscription', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
         automaticallyImplyLeading: widget.userData.isNotEmpty, // Only show back if registering
       ),
       body: SingleChildScrollView(

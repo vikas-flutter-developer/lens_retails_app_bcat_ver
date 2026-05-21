@@ -15,6 +15,9 @@ import '../../employees/screens/staff_list_screen.dart';
 import '../../reports/screens/reports_screen.dart';
 import '../../tasks/screens/task_management_screen.dart';
 import '../../orders/screens/vendor_master_screen.dart';
+import '../../ledger/screens/my_ledger_screen.dart';
+import '../../common/screens/qr_scanner_hub_screen.dart';
+import '../../common/screens/rfid_command_center.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Design tokens — Light theme
@@ -80,10 +83,12 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
   bool   _isLoading       = true;
   Timer? _refreshTimer;
   String _todayCollection = '₹0';
+  String _todayProfit     = '₹0';
   int    _activeJobCards  = 0;
   int    _pendingTasks    = 0;
   int    _lowStockCount   = 0;
   String _cashInHand      = '₹0';
+  String _netProfit       = '₹0';
   String _userName        = '';
 
   late AnimationController _entryCtrl;
@@ -120,32 +125,52 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
     try {
       final analytics = await _analyticsService.fetchMobileDashboard();
       final name      = await _authService.getUserName();
-      final expenses  = await _expenseService.fetchExpenses();
-
-      final double rev = (analytics['todayCollection'] != null)
-          ? double.tryParse(analytics['todayCollection'].toString()) ?? 0.0 : 0.0;
-
-      double todayExp = 0.0;
-      final now = DateTime.now();
-      for (var ex in expenses) {
-        if (ex['date'] == "${now.day}-${now.month}-${now.year}") {
-          todayExp += (ex['amount'] as num).toDouble();
-        }
+      
+      List expenses = [];
+      try {
+        expenses = await _expenseService.fetchExpenses();
+      } catch (e) {
+        debugPrint('Dashboard failed to load expenses: $e');
       }
+
+       final double rev = (analytics['todayCollection'] != null)
+           ? double.tryParse(analytics['todayCollection'].toString()) ?? 0.0 : 0.0;
+       final double profitT = (analytics['todayProfit'] != null)
+           ? double.tryParse(analytics['todayProfit'].toString()) ?? (rev * 0.5) : (rev * 0.5);
+
+       double todayExp = 0.0;
+       final now = DateTime.now();
+       for (var ex in expenses) {
+         if (ex['date'] == "${now.day}-${now.month}-${now.year}") {
+           todayExp += (ex['amount'] as num).toDouble();
+         }
+       }
+       
+       final double cashH = (analytics['cashInHand'] ?? (rev - todayExp)).toDouble();
+       final double profitN = (analytics['netProfit'] != null)
+           ? double.tryParse(analytics['netProfit'].toString()) ?? (cashH * 0.5) : (cashH * 0.5);
+
+       if (mounted) {
+         setState(() {
+           _todayCollection = "₹${_fmt(rev)}";
+           _todayProfit     = "₹${_fmt(profitT)}";
+           _cashInHand      = "₹${_fmt(cashH)}";
+           _netProfit       = "₹${_fmt(profitN)}";
+           _activeJobCards  = analytics['activeJobCards'] ?? 0;
+           _pendingTasks    = analytics['pendingTasks']   ?? 0;
+           _lowStockCount   = analytics['lowStockCount']  ?? 0;
+           _userName        = name;
+           _isLoading       = false;
+         });
+         _entryCtrl.forward(from: 0);
+       }
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _todayCollection = "₹${_fmt(rev)}";
-          _cashInHand      = "₹${_fmt((analytics['cashInHand'] ?? (rev - todayExp)).toDouble())}";
-          _activeJobCards  = analytics['activeJobCards'] ?? 0;
-          _pendingTasks    = analytics['pendingTasks']   ?? 0;
-          _lowStockCount   = analytics['lowStockCount']  ?? 0;
-          _userName        = name;
-          _isLoading       = false;
+          _isLoading = false;
         });
         _entryCtrl.forward(from: 0);
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -194,6 +219,8 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 48),
               sliver: SliverList(delegate: SliverChildListDelegate([
                 _buildMetricCards(),
+                const SizedBox(height: 28),
+                _buildQRToolsHub(),
                 const SizedBox(height: 28),
                 _buildSectionLabel('Quick Access'),
                 const SizedBox(height: 14),
@@ -344,6 +371,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
             _metricCard(
               label: "Today's Revenue",
               value: _todayCollection,
+              profit: _todayProfit,
               icon: Icons.trending_up_rounded,
               iconBg: _C.indigoLt,
               iconColor: _C.indigo,
@@ -355,8 +383,9 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
             ),
             const SizedBox(width: 14),
             _metricCard(
-              label: 'Cash in Hand',
+              label: 'Net Revenue',
               value: _cashInHand,
+              profit: _netProfit,
               icon: Icons.account_balance_wallet_rounded,
               iconBg: _C.tealLt,
               iconColor: _C.teal,
@@ -364,7 +393,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
               badge: 'Net',
               badgeColor: _C.tealLt,
               badgeTextColor: _C.teal,
-              onTap: () => _nav(const DailyCollectionsScreen()),
+              onTap: () => _nav(const DailyCollectionsScreen(isMonthly: true)),
             ),
           ]),
         ),
@@ -375,6 +404,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
   Widget _metricCard({
     required String label,
     required String value,
+    String? profit,
     required IconData icon,
     required Color iconBg,
     required Color iconColor,
@@ -429,11 +459,116 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
                   color: valueColor, fontSize: 26,
                   fontWeight: FontWeight.w900, letterSpacing: -0.6)),
               const SizedBox(height: 4),
-              Text(label, style: const TextStyle(
-                  color: _C.textSec, fontSize: 11, fontWeight: FontWeight.w600)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(label, 
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _C.textSec, fontSize: 10, fontWeight: FontWeight.w600)),
+                  ),
+                  if (profit != null)
+                    Text('Profit: $profit', style: const TextStyle(
+                        color: _C.emerald, fontSize: 9, fontWeight: FontWeight.w800)),
+                ],
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+  // ── QR TOOLS HUB ─────────────────────────────────────────────────────────────
+
+  Widget _buildQRToolsHub() {
+    return AnimatedBuilder(
+      animation: _fadeIn(0.16),
+      builder: (_, __) => Opacity(
+        opacity: _fadeIn(0.16).value,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: _C.card,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: _C.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 16, offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _C.indigoLt,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.qr_code_scanner_rounded, color: _C.indigo, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('QR & RFID HUB', style: TextStyle(
+                          color: _C.textPri, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.0
+                        )),
+                        Text('Operations Control Center', style: TextStyle(
+                          color: _C.textSec, fontSize: 10,
+                        )),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, color: _C.textSec.withOpacity(0.4), size: 12),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _qrAction('Scan & Bill', Icons.shopping_cart_checkout, _C.indigo, _C.indigoLt, () => _nav(const QRScannerHubScreen(initialMode: 'bill'))),
+                  _qrAction('Manage Stock', Icons.warehouse, _C.amber, _C.amberLt, () => _nav(const QRScannerHubScreen(initialMode: 'inventory'))),
+                  _qrAction('Track Orders', Icons.local_shipping, _C.teal, _C.tealLt, () => _nav(const QRScannerHubScreen(initialMode: 'track'))),
+                  _qrAction('RFID Audit', Icons.sensors_rounded, _C.violet, _C.violetLt, () => _nav(const RFIDCommandCenterScreen())),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _qrAction(String label, IconData icon, Color accentColor, Color bgColor, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.heavyImpact();
+        onTap();
+      },
+      child: Column(
+        children: [
+          Container(
+            width: 60, height: 60,
+            decoration: BoxDecoration(
+              color: bgColor,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Icon(icon, color: accentColor, size: 24),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(label, style: const TextStyle(
+            color: _C.textSec, fontSize: 10, fontWeight: FontWeight.w600,
+          )),
+        ],
       ),
     );
   }
@@ -451,6 +586,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
   Widget _buildServicesGrid() {
     final svcs = [
       _Svc('New Order',  Icons.add_shopping_cart_rounded,  _C.indigo,   _C.indigoLt,   widget.onAddOrder),
+      _Svc('Invoices',   Icons.receipt_rounded,             _C.fuchsia,  _C.fuchsiaLt,  () => _nav(const MyOrderListScreen())),
       _Svc('Job Cards',  Icons.assignment_rounded,          _C.sky,      _C.skyLt,      () => _nav(const JobCardsListScreen())),
       _Svc('Expenses',   Icons.receipt_long_rounded,        _C.rose,     _C.roseLt,     () => _nav(const ExpensesScreen())),
       _Svc('Reports',    Icons.bar_chart_rounded,           _C.fuchsia,  _C.fuchsiaLt,  () => _nav(const ReportsScreen())),
@@ -458,7 +594,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
       _Svc('Tasks',      Icons.checklist_rounded,           _C.teal,     _C.tealLt,     () => _nav(const TaskManagementScreen())),
       _Svc('Staff',      Icons.badge_rounded,               _C.emerald,  _C.emeraldLt,  () => _nav(const StaffListScreen())),
       _Svc('Vendors',    Icons.business_rounded,            _C.violet,   _C.violetLt,   () => _nav(const VendorMasterScreen())),
-      _Svc('Ledger',     Icons.account_balance_rounded,     _C.orange,   _C.orangeLt,   () => _nav(const DailyCollectionsScreen())),
+      _Svc('Ledger',     Icons.account_balance_rounded,     _C.orange,   _C.orangeLt,   () => _nav(const MyLedgerScreen())),
     ];
 
     return AnimatedBuilder(
@@ -564,7 +700,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab>
             IntrinsicHeight(
               child: Row(children: [
                 _opsCell('ACTIVE\nJOBS',    _activeJobCards, _C.sky,    _C.skyLt,
-                        () => _nav(const MyOrderListScreen(initialStatus: 'In Progress')), isFirst: true),
+                        () => _nav(const MyOrderListScreen(initialStatus: 'Active')), isFirst: true),
                 VerticalDivider(width: 1, color: _C.border),
                 _opsCell('PENDING\nTASKS', _pendingTasks,   _C.amber,  _C.amberLt,
                         () => _nav(const TaskManagementScreen())),

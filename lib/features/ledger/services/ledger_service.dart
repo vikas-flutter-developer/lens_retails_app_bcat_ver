@@ -2,12 +2,9 @@ import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/mock/mock_data.dart';
-import '../../auth/services/auth_service.dart';
 import 'package:flutter/foundation.dart';
 
 class LedgerService {
-  final AuthService _authService = AuthService();
-
   Future<List<Map<String, dynamic>>> fetchLedger({
     required String startDate,
     required String endDate,
@@ -65,30 +62,52 @@ class LedgerService {
     }
 
     try {
-      final userId = await _authService.getUserId();
-      debugPrint('📊 [LedgerService] Fetching ledger for user: $userId ($startDate to $endDate)');
+      debugPrint('📊 [LedgerService] Building ledger from collection report ($startDate to $endDate)');
 
-      final response = await ApiClient.dio.post(
-        'customer/ledger',
-        data: {
-          'startDate': startDate,
-          'endDate': endDate,
-          'customerId': userId,
-        },
-        options: Options(contentType: Headers.jsonContentType),
+      final response = await ApiClient.dio.get(
+        'v1/finances/daily-summary',
+        queryParameters: {'date': endDate},
       );
 
       if (response.statusCode == 200) {
-        final rawData = response.data;
-        List<dynamic> listData = [];
+        final data = response.data['data'];
+        if (data is! Map) return [];
 
-        if (rawData is List) {
-          listData = rawData;
-        } else if (rawData is Map) {
-          listData = rawData['data'] ?? rawData['ledger'] ?? rawData['result'] ?? rawData['docs'] ?? [];
-        }
-
-        return listData.map((item) => item as Map<String, dynamic>).toList();
+        final entries = <Map<String, dynamic>>[];
+        entries.add({
+          'sn': 'CASH-IN',
+          'date': endDate,
+          'transType': 'Receipt',
+          'vchNo': '-',
+          'partyName': 'Cash Collection',
+          'credit': (data['totalCashReceived'] ?? 0).toDouble(),
+          'debit': 0.0,
+          'balance': (data['netCashInHand'] ?? 0).toDouble(),
+          'remark': 'Total cash received',
+        });
+        entries.add({
+          'sn': 'NON-CASH',
+          'date': endDate,
+          'transType': 'Receipt',
+          'vchNo': '-',
+          'partyName': 'UPI/Bank/Card',
+          'credit': (data['totalNonCashReceived'] ?? 0).toDouble(),
+          'debit': 0.0,
+          'balance': (data['netCashInHand'] ?? 0).toDouble(),
+          'remark': 'Total non-cash received',
+        });
+        entries.add({
+          'sn': 'EXP',
+          'date': endDate,
+          'transType': 'Expense',
+          'vchNo': '-',
+          'partyName': 'Monthly Expenses',
+          'credit': 0.0,
+          'debit': (data['totalExpensesPaid'] ?? 0).toDouble(),
+          'balance': (data['netCashInHand'] ?? 0).toDouble(),
+          'remark': 'Expenses paid',
+        });
+        return entries;
       }
       return [];
     } catch (e) {

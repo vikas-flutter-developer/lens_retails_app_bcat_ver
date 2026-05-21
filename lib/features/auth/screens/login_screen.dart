@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'create_account_screen.dart';
+import 'forgot_password_screen.dart';
+import '../../../core/utils/auth_snackbar.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,23 +22,26 @@ class _LoginScreenState extends State<LoginScreen> {
   // State
   bool _isLoading = false;
   bool _obscurePassword = true;
-  String _selectedRole = 'Customer'; // Default to Customer
+  String _selectedRole = 'OWNER'; // Default to OWNER
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill with customer credentials by default
+    // Pre-fill with default credentials for testing
     _updateCredentials();
   }
 
   void _updateCredentials() {
     setState(() {
-      if (_selectedRole == 'Admin') {
+      if (_selectedRole == 'OWNER') {
         _emailController.text = 'branding@gmail.com';
         _passwordController.text = 'branding';
+      } else if (_selectedRole == 'MANAGER') {
+        _emailController.text = 'manager@lens.com';
+        _passwordController.text = 'password';
       } else {
-        _emailController.text = '1001';
-        _passwordController.text = 'abhi';
+        _emailController.text = 'staff@lens.com';
+        _passwordController.text = 'password';
       }
     });
   }
@@ -49,19 +54,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       FocusScope.of(context).unfocus();
 
-      bool success;
-      if (_selectedRole == 'Admin') {
-        success = await _authService.adminLogin(
-          _emailController.text.trim(),
-          _passwordController.text,
-          role: _selectedRole,
-        );
-      } else {
-        success = await _authService.login(
-          _emailController.text.trim(),
-          _passwordController.text,
-        );
-      }
+      bool success = await _authService.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
 
       if (!mounted) return;
 
@@ -70,18 +66,43 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       if (success) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/dashboard',
-          (route) => false,
+        AuthSnackBar.show(
+          context,
+          title: 'Welcome Back!',
+          message: 'You have logged in successfully.',
+          type: AuthSnackBarType.success,
         );
+
+        final role = _selectedRole;
+        final expiresAtStr = await _authService.getSubscriptionExpiresAt();
+
+        bool isExpired = false;
+        if (role == 'OWNER' && expiresAtStr != null && expiresAtStr.isNotEmpty) {
+          try {
+            final expiresAt = DateTime.parse(expiresAtStr);
+            isExpired = DateTime.now().isAfter(expiresAt);
+          } catch (_) {}
+        }
+
+        if (!mounted) return;
+
+        if (isExpired) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/subscription',
+            (route) => false,
+          );
+        } else {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/dashboard',
+            (route) => false,
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AuthService.lastError ?? 'Login failed. Please check your credentials.'),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
+        AuthSnackBar.show(
+          context,
+          title: 'Login Failed',
+          message: AuthService.lastError ?? 'Please verify your email and password and try again.',
+          type: AuthSnackBarType.error,
         );
       }
     }
@@ -176,12 +197,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 fontSize: 14,
                                 color: Color(0xFF1F2937),
                               ),
-                              items: ['Admin', 'Customer'].map((String role) {
-                                return DropdownMenuItem<String>(
-                                  value: role,
-                                  child: Text(role),
-                                );
-                              }).toList(),
+                              items: const [
+                                DropdownMenuItem(value: 'OWNER', child: Text('Owner')),
+                                DropdownMenuItem(value: 'MANAGER', child: Text('Manager')),
+                                DropdownMenuItem(value: 'STAFF', child: Text('Staff')),
+                              ],
                               onChanged: (String? newValue) {
                                 if (newValue != null) {
                                   setState(() {
@@ -197,13 +217,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
                     
-                    // Email/Account ID Field
+                    // Email Field
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          _selectedRole == 'Admin' ? 'Email' : 'Account ID',
-                          style: const TextStyle(
+                        const Text(
+                          'Email ID',
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                             color: Color(0xFF374151),
@@ -212,8 +232,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
-                            hintText: _selectedRole == 'Admin' ? 'you@company.com' : 'Enter your account ID',
+                            hintText: 'Enter your email ID',
                             hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
                             prefixIcon: const Icon(Icons.mail_outline, color: Color(0xFF9CA3AF), size: 20),
                             border: OutlineInputBorder(
@@ -234,9 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return _selectedRole == 'Admin' 
-                                  ? 'Please enter your email'
-                                  : 'Please enter your Account ID';
+                              return 'Please enter your email ID';
                             }
                             return null;
                           },
@@ -300,9 +319,35 @@ class _LoginScreenState extends State<LoginScreen> {
                             return null;
                           },
                         ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ForgotPasswordScreen(),
+                                ),
+                              );
+                            },
+                            style: TextButton.styleFrom(
+                              minimumSize: Size.zero,
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: Color(0xFF2563EB),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
                     
                     // Sign In Button
                     SizedBox(

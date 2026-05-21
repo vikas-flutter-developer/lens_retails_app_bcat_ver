@@ -44,7 +44,7 @@ class AnalyticsService {
     
     try {
       debugPrint('📊 [AnalyticsService] Fetching mobile dashboard summary...');
-      final response = await ApiClient.dio.get('analytics/mobile-dashboard');
+      final response = await ApiClient.dio.get('v1/mobile/analytics/dashboard');
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data['data'];

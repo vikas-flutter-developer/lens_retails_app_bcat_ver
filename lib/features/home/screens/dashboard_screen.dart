@@ -55,6 +55,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final name = await _authService.getUserName();
     final id = await _authService.getUserId() ?? 'Unknown';
     final details = await _authService.getUserDetails();
+    final subPlan = await _authService.getSubscriptionPlan();
+    final subExpiresAt = await _authService.getSubscriptionExpiresAt();
 
     if (!mounted) return;
 
@@ -65,6 +67,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         id: id,
         details: details,
         authService: _authService,
+        subscriptionPlan: subPlan,
+        subscriptionExpires: subExpiresAt,
       ),
     );
   }
@@ -126,12 +130,16 @@ class _ProfileDialogContent extends StatefulWidget {
   final String id;
   final Map<String, String?> details;
   final AuthService authService;
+  final String? subscriptionPlan;
+  final String? subscriptionExpires;
 
   const _ProfileDialogContent({
     required this.name, 
     required this.id, 
     required this.details,
-    required this.authService
+    required this.authService,
+    this.subscriptionPlan,
+    this.subscriptionExpires,
   });
 
   @override
@@ -286,6 +294,10 @@ class _ProfileDialogContentState extends State<_ProfileDialogContent> {
                     if (!_isEditing) ...[
                       _buildDisplayCard(Icons.person_outline_rounded, 'Retailer Name', widget.name),
                       const SizedBox(height: 16),
+                      if (widget.subscriptionPlan != null && widget.subscriptionPlan!.isNotEmpty) ...[
+                        _buildSubscriptionCard(widget.subscriptionPlan!, widget.subscriptionExpires),
+                        const SizedBox(height: 16),
+                      ],
                       _buildDisplayCard(Icons.qr_code_rounded, 'GSTIN Number', _gstinController.text.isEmpty ? 'Not Registered' : _gstinController.text),
                       const SizedBox(height: 16),
                       _buildDisplayCard(Icons.card_membership_rounded, 'Business Card', _cardController.text.isEmpty ? 'Not Linked' : _cardController.text),
@@ -385,6 +397,93 @@ class _ProfileDialogContentState extends State<_ProfileDialogContent> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionCard(String plan, String? expiresAtStr) {
+    int daysLeft = 0;
+    String status = 'Inactive';
+    if (expiresAtStr != null && expiresAtStr.isNotEmpty) {
+      try {
+        final expiresAt = DateTime.parse(expiresAtStr);
+        daysLeft = expiresAt.difference(DateTime.now()).inDays;
+        status = daysLeft > 0 ? '$daysLeft Days Remaining' : 'Expired';
+      } catch (_) {
+        status = 'Active';
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF7ED), Color(0xFFFEF3C7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.amber[100],
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(Icons.star_rounded, color: Colors.amber[800], size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SUBSCRIPTION PLAN ($plan)'.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber[800],
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  status,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: daysLeft > 0 ? const Color(0xFFB45309) : Colors.red[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (daysLeft > 0) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close the profile dialog
+                Navigator.pushNamed(context, '/subscription'); // Go to subscription buy screen
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.amber[500]?.withValues(alpha: 0.15),
+                foregroundColor: Colors.amber[900],
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                'Renew Early',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

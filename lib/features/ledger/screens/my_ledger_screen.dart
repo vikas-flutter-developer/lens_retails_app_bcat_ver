@@ -12,9 +12,8 @@ class MyLedgerScreen extends StatefulWidget {
 }
 
 class _MyLedgerScreenState extends State<MyLedgerScreen> {
-  final _fromDateController = TextEditingController(text: '01-01-2026');
-
-  final _toDateController = TextEditingController(text: '13-01-2026');
+  late final TextEditingController _fromDateController;
+  late final TextEditingController _toDateController;
 
   final LedgerService _ledgerService = LedgerService();
   bool _isLoading = false;
@@ -26,6 +25,13 @@ class _MyLedgerScreenState extends State<MyLedgerScreen> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _fromDateController = TextEditingController(
+      text: "01-${now.month.toString().padLeft(2, '0')}-${now.year}"
+    );
+    _toDateController = TextEditingController(
+      text: "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}"
+    );
     _fetchLedger();
     
     // Auto-refresh every 30 seconds
@@ -146,213 +152,229 @@ class _MyLedgerScreenState extends State<MyLedgerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('My Ledger', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF1A237E),
-        centerTitle: true,
-        actions: [
+    double totalDebit = 0;
+    double totalCredit = 0;
+    for (var entry in _ledgerEntries) {
+      totalDebit += double.tryParse(entry['debit']?.replaceAll(',', '') ?? '0') ?? 0.0;
+      totalCredit += double.tryParse(entry['credit']?.replaceAll(',', '') ?? '0') ?? 0.0;
+    }
+    double netBalance = totalCredit - totalDebit;
 
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F6FB),
+      appBar: AppBar(
+        title: const Text('My Ledger Statement', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1A237E),
+        elevation: 0,
+        actions: [
+          IconButton(
+            onPressed: _printLedger,
+            icon: const Icon(Icons.print, color: Colors.white),
+            tooltip: 'Print Statement',
+          ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _fetchLedger,
+        color: const Color(0xFF1A237E),
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(), // Important for RefreshIndicator
-          padding: const EdgeInsets.all(16.0),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
-          children: [
-            // Filter Bar
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Running Balance Summary Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1A237E), Color(0xFF3949AB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1A237E).withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
                 child: Column(
                   children: [
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth > 800) {
-                          return _buildDesktopFilterRow();
-                        } else {
-                          return _buildMobileFilterColumn();
-                        }
-                      },
+                    const Text('Total Net Balance', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    Text('₹${netBalance.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildSummaryColumn('Total Credit (In)', '₹${totalCredit.toStringAsFixed(2)}', Colors.greenAccent),
+                        Container(width: 1, height: 30, color: Colors.white30),
+                        _buildSummaryColumn('Total Debit (Out)', '₹${totalDebit.toStringAsFixed(2)}', Colors.redAccent),
+                      ],
                     ),
-                    const Divider(height: 32),
-                    // Ledger Table
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: _buildLedgerTable(),
-                    ),
-                    if (_isLoading)
-                      const Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(),
-                      ),
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    if (!_isLoading &&
-                        _ledgerEntries.isEmpty &&
-                        _errorMessage == null)
-                      const Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: Text(
-                          'No records found',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    ),
-   );
-  }
+              const SizedBox(height: 24),
 
-  Widget _buildLedgerTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[300]!),
-        ),
-      ),
-      width: 800, // Safe minimum width to ensure no overflow
-      child: Table(
-        columnWidths: const {
-          0: FixedColumnWidth(40),  // SN
-          1: FixedColumnWidth(90),  // Date
-          2: FixedColumnWidth(100), // Type
-          3: FixedColumnWidth(130), // Vch
-          4: FixedColumnWidth(90),  // Debit
-          5: FixedColumnWidth(90),  // Credit
-          6: FixedColumnWidth(100), // Balance
-        },
-        children: [
-          // Header Row
-          TableRow(
-            decoration: const BoxDecoration(color: Colors.white),
-            children: const [
-              _TableHeaderCell('SN'),
-              _TableHeaderCell('Date'),
-              _TableHeaderCell('Trans Type'),
-              _TableHeaderCell('Vch/Bill No'),
-              _TableHeaderCell('Debit'),
-              _TableHeaderCell('Credit'),
-              _TableHeaderCell('Balance'),
-            ],
-          ),
-          // Data Rows
-          if (!_isLoading) ..._ledgerEntries.map((e) {
-            return TableRow(
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.grey[200]!),
-                ),
-              ),
-              children: [
-                _TableCell(e['sn'] ?? ''),
-                _TableCell(e['date'] ?? ''),
-                _TableCell(e['type'] ?? ''),
-                _TableCell(e['vch'] ?? ''),
-                _TableCell(e['debit'] ?? ''),
-                _TableCell(e['credit'] ?? ''),
-                _TableCell(
-                  e['bal'] ?? '',
-                  isBold: true,
-                ),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDesktopFilterRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        SizedBox(
-          width: 150,
-          child: _buildDateInput('From Date', _fromDateController),
-        ),
-        const SizedBox(width: 16),
-        SizedBox(
-          width: 150,
-          child: _buildDateInput('To Date', _toDateController),
-        ),
-        const SizedBox(width: 16),
-        SizedBox(
-          height: 48,
-          width: 120,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            onPressed: _fetchLedger,
-            child: const Text('Search'),
-          ),
-        ),
-        const SizedBox(width: 16),
-        IconButton(
-          onPressed: _printLedger,
-          icon: const Icon(Icons.print, color: Colors.blueGrey, size: 30),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileFilterColumn() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(child: _buildDateInput('From Date', _fromDateController)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildDateInput('To Date', _toDateController)),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
+              // Date Filters
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFFE2E8F0))),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: _buildDateInput('From Date', _fromDateController)),
+                          const SizedBox(width: 12),
+                          Expanded(child: _buildDateInput('To Date', _toDateController)),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A237E),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          onPressed: _fetchLedger,
+                          icon: const Icon(Icons.search, size: 18),
+                          label: const Text('Filter Statement', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                onPressed: _fetchLedger,
-                child: const Text('Search'),
               ),
-            ),
-            const SizedBox(width: 16),
-            IconButton(
-              onPressed: _printLedger,
-              icon: const Icon(Icons.print, color: Colors.blueGrey, size: 30),
-            ),
-          ],
+              const SizedBox(height: 24),
+
+              // Transactions Header
+              const Text('Transaction Records', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+              const SizedBox(height: 12),
+
+              // Loading / Error / Empty States
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF1A237E))),
+                )
+              else if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 30),
+                  child: Center(child: Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontSize: 14))),
+                )
+              else if (_ledgerEntries.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('No ledger entries found.', style: TextStyle(color: Colors.grey, fontSize: 14))),
+                )
+              else
+                // Beautiful Transaction List
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _ledgerEntries.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final e = _ledgerEntries[index];
+                    final isExpense = e['type']?.toString().toLowerCase() == 'expense' || (double.tryParse(e['debit']?.toString() ?? '0') ?? 0) > 0;
+                    final amt = isExpense ? '- ₹${double.tryParse(e['debit']?.toString() ?? '0')?.toStringAsFixed(2) ?? e['debit']}' : '+ ₹${double.tryParse(e['credit']?.toString() ?? '0')?.toStringAsFixed(2) ?? e['credit']}';
+
+                    return Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFFE2E8F0))),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          children: [
+                            // Beautiful Transaction circular icon
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isExpense ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isExpense ? Icons.arrow_downward : Icons.arrow_upward,
+                                color: isExpense ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+
+                            // Details
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isExpense ? 'Store Expense' : (e['sn']?.toString() == 'CASH-IN' ? 'Cash Collection' : 'UPI/Bank/Card Collection'),
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${e['date']} • Vch: ${e['vch']}',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Amount & Balance
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  amt,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: isExpense ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'Bal: ₹${double.tryParse(e['bal']?.toString() ?? '0')?.toStringAsFixed(2) ?? e['bal']}',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryColumn(String label, String value, Color valueColor) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(color: valueColor, fontSize: 14, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -364,70 +386,34 @@ class _MyLedgerScreenState extends State<MyLedgerScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: Colors.teal,
-            fontWeight: FontWeight.w500,
+            color: Color(0xFF1A237E),
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         TextFormField(
           controller: controller,
           readOnly: true,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1F2937)),
           decoration: InputDecoration(
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             filled: true,
-            fillColor: Colors.grey[200],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.grey),
+            fillColor: const Color(0xFFF9FAFB),
+            prefixIcon: const Icon(Icons.calendar_month, size: 18, color: Color(0xFF1A237E)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF1A237E)),
             ),
           ),
           onTap: () => _selectDate(context, controller),
         ),
       ],
-    );
-  }
-}
-
-class _TableHeaderCell extends StatelessWidget {
-  final String label;
-
-  const _TableHeaderCell(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-      ),
-    );
-  }
-}
-
-class _TableCell extends StatelessWidget {
-  final String value;
-  final bool isBold;
-
-  const _TableCell(this.value, {this.isBold = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-      child: Text(
-        value,
-        style: TextStyle(
-          fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
     );
   }
 }

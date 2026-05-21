@@ -49,12 +49,15 @@ class _VendorMasterScreenState extends State<VendorMasterScreen> {
     final nameCtrl = TextEditingController(text: vendor?['name'] ?? vendor?['Name']);
     final printNameCtrl = TextEditingController(text: vendor?['printName'] ?? vendor?['PrintName'] ?? vendor?['name'] ?? vendor?['Name']);
     final aliasCtrl = TextEditingController(text: vendor?['alias'] ?? vendor?['Alias']);
-    final accountIdCtrl = TextEditingController(text: vendor?['accountId'] ?? vendor?['AccountId'] ?? 'MOCK-${1000 + _vendors.length}');
+    final accountIdCtrl = TextEditingController(text: vendor?['accountId'] ?? vendor?['AccountId'] ?? 'VND-${1000 + _vendors.length}');
     final groupCtrl = TextEditingController(text: vendor?['group'] ?? 'Purchase Account');
     final stationCtrl = TextEditingController(text: vendor?['station'] ?? 'Local');
     final contactPersonCtrl = TextEditingController(text: vendor?['contactPerson'] ?? 'Admin Manager');
     final phoneCtrl = TextEditingController(text: vendor?['phone'] ?? vendor?['MobileNumber']);
     final emailCtrl = TextEditingController(text: vendor?['email'] ?? vendor?['Email']);
+    final addressCtrl = TextEditingController(text: vendor?['address'] ?? vendor?['Address'] ?? '');
+    final gstinCtrl = TextEditingController(text: vendor?['gstin'] ?? vendor?['GSTIN'] ?? '');
+    final dobCtrl = TextEditingController(text: vendor?['dob'] ?? vendor?['DOB'] ?? '15-May-1985');
     String accountType = vendor?['accountType'] ?? 'Purchase';
 
     showModalBottomSheet(
@@ -102,13 +105,7 @@ class _VendorMasterScreenState extends State<VendorMasterScreen> {
                     const SizedBox(height: 16),
                     _buildField(printNameCtrl, 'Print Name *', Icons.print_outlined),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(child: _buildField(accountIdCtrl, 'Account Id *', Icons.fingerprint, enabled: false)),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildField(aliasCtrl, 'Alias', Icons.label_outline)),
-                      ],
-                    ),
+                    _buildField(aliasCtrl, 'Alias', Icons.label_outline),
                     const SizedBox(height: 32),
                     _sectionLabel('GROUPS & STATIONS'),
                     Row(
@@ -129,6 +126,16 @@ class _VendorMasterScreenState extends State<VendorMasterScreen> {
                         Expanded(child: _buildField(emailCtrl, 'Email', Icons.alternate_email)),
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(child: _buildField(gstinCtrl, 'GSTIN', Icons.receipt_long_outlined)),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildField(dobCtrl, 'DOB / Incorporation Date', Icons.calendar_today_outlined)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildField(addressCtrl, 'Full Address', Icons.location_on_outlined),
                     const SizedBox(height: 16),
                     _buildDropdown('Account Type', accountType, ['Purchase', 'Sales', 'Service'], (val) {
                       accountType = val!;
@@ -175,6 +182,9 @@ class _VendorMasterScreenState extends State<VendorMasterScreen> {
                             'phone': phoneCtrl.text,
                             'email': emailCtrl.text,
                             'accountType': accountType,
+                            'address': addressCtrl.text,
+                            'dob': dobCtrl.text,
+                            'gstin': gstinCtrl.text,
                           };
                           bool success = await _masterDataService.createVendor(data);
                           if (success && mounted) {
@@ -247,7 +257,12 @@ class _VendorMasterScreenState extends State<VendorMasterScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Vendor Master', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1A237E),
+        foregroundColor: Colors.white,
         elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+        ),
         actions: [
           IconButton(icon: const Icon(Icons.add_circle_outline, size: 28), onPressed: () => _showVendorForm()),
           const SizedBox(width: 8),
@@ -258,8 +273,12 @@ class _VendorMasterScreenState extends State<VendorMasterScreen> {
         : Column(
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
-                color: const Color(0xFF1A237E),
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1A237E),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                ),
                 child: TextField(
                   onChanged: (val) {
                     _searchQuery = val;
@@ -305,14 +324,65 @@ class _VendorMasterScreenState extends State<VendorMasterScreen> {
                             )),
                           );
                         },
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         leading: CircleAvatar(
+                          radius: 22,
                           backgroundColor: const Color(0xFF1A237E).withOpacity(0.1),
-                          child: Text(name[0], style: const TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold)),
+                          child: Text(name[0], style: const TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold, fontSize: 16)),
                         ),
-                        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(vendor['email'] ?? vendor['Email'] ?? 'contact@lab.com', style: const TextStyle(fontSize: 12)),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                        title: Row(
+                          children: [
+                            Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
+                            if (vendor['group'] != null && vendor['group'].toString().isNotEmpty && vendor['group'] != 'null')
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1A237E).withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  vendor['group'].toString().replaceAll('_', ' '),
+                                  style: const TextStyle(fontSize: 8, color: Color(0xFF1A237E), fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                          ],
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(vendor['email'] ?? vendor['Email'] ?? 'contact@lab.com', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                            if (vendor['gstin'] != null && vendor['gstin'].toString().isNotEmpty && vendor['gstin'] != 'null') ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.receipt_long_outlined, size: 12, color: Colors.grey[600]),
+                                  const SizedBox(width: 4),
+                                  Text('GSTIN: ${vendor['gstin']}', style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ]
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (vendor['station'] != null && vendor['station'].toString().isNotEmpty && vendor['station'] != 'null')
+                              Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  vendor['station'].toString(),
+                                  style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                          ],
+                        ),
                       ),
                     );
                   },

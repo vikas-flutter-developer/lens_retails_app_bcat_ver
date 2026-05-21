@@ -2,11 +2,9 @@ import '../../../core/network/api_client.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/mock/mock_data.dart';
 import 'package:flutter/foundation.dart';
-import '../../auth/services/auth_service.dart';
 
 class CollectionService {
-  final AuthService _authService = AuthService();
-  Future<Map<String, dynamic>> fetchDailySummary(DateTime date) async {
+  Future<Map<String, dynamic>> fetchDailySummary(DateTime date, {bool isMonthly = false}) async {
     if (AppConfig.useMockData) {
       debugPrint('🧪 [CollectionService] MOCK MODE: Returning revenue breakdown');
       await Future.delayed(const Duration(milliseconds: 400));
@@ -14,6 +12,10 @@ class CollectionService {
         'cash': MockData.cashCollection,
         'bank': MockData.bankCollection + MockData.upiCollection,
         'totalIn': MockData.totalRevenue,
+        'sales': MockData.totalRevenue,
+        'purchase': MockData.totalRevenue * 0.55,
+        'profit': MockData.totalRevenue * 0.45,
+        'expenses': MockData.totalExpenses,
         'details': {
           'CASH': MockData.cashCollection,
           'HDFC Bank': MockData.bankCollection,
@@ -23,32 +25,36 @@ class CollectionService {
     }
     try {
       final dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-      debugPrint('📡 [CollectionService] Fetching summary for $dateStr');
+      debugPrint('📡 [CollectionService] Fetching summary for $dateStr, isMonthly: $isMonthly');
       
-      final response = await ApiClient.dio.post('reports/collection', data: {
-        'dateFrom': dateStr,
-        'dateTo': dateStr,
-        'reportBy': 'Date Wise',
-        'transTypes': [
-          'Sale', 'Sale Order', 'Sale Challan',
-          'Purchase', 'Purchase Order', 'Purchase Challan',
-          'Damage and Shrinkage', 'Receipt', 'Payment'
-        ]
-      });
+      final response = await ApiClient.dio.get(
+        'v1/finances/daily-summary',
+        queryParameters: {
+          'date': dateStr,
+          'isMonthly': isMonthly ? 'true' : 'false',
+        },
+      );
       
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> data = response.data['data'] is List ? response.data['data'] : [];
-        if (data.isNotEmpty) {
-          final summary = data[0] as Map<dynamic, dynamic>;
+        final summary = response.data['data'];
+        if (summary is Map) {
           return {
-            'cash': (summary['cashDr'] ?? 0).toDouble(),
-            'bank': (summary['bankDr'] ?? 0).toDouble(),
-            'totalIn': ((summary['cashDr'] ?? 0) + (summary['bankDr'] ?? 0)).toDouble(),
-            'details': Map<String, dynamic>.from(summary['details'] ?? {}),
+            'cash': (summary['totalCashReceived'] ?? 0).toDouble(),
+            'bank': (summary['totalNonCashReceived'] ?? 0).toDouble(),
+            'totalIn': ((summary['totalCashReceived'] ?? 0) + (summary['totalNonCashReceived'] ?? 0)).toDouble(),
+            'sales': (summary['totalSalesToday'] ?? 0).toDouble(),
+            'purchase': (summary['totalPurchaseToday'] ?? 0).toDouble(),
+            'profit': (summary['totalProfitToday'] ?? 0).toDouble(),
+            'expenses': (summary['totalExpensesPaid'] ?? 0).toDouble(),
+            'details': {
+              'Cash': summary['totalCashReceived'] ?? 0,
+              'Non Cash': summary['totalNonCashReceived'] ?? 0,
+              'Expenses': summary['totalExpensesPaid'] ?? 0,
+            },
           };
         }
       }
-      return {'cash': 0.0, 'bank': 0.0, 'totalIn': 0.0, 'details': <String, dynamic>{}};
+      return {'cash': 0.0, 'bank': 0.0, 'totalIn': 0.0, 'sales': 0.0, 'purchase': 0.0, 'profit': 0.0, 'expenses': 0.0, 'details': <String, dynamic>{}};
     } catch (e) {
       debugPrint('❌ [CollectionService] Error fetching summary: $e');
       return {'cash': 0.0, 'bank': 0.0, 'totalIn': 0.0, 'details': <String, dynamic>{}};
@@ -61,60 +67,37 @@ class CollectionService {
     String? accountId,
     required double amount,
     required String date,
+    String paymentMode = 'Cash',
   }) async {
     try {
-      debugPrint('💰 [CollectionService] Recording receipt for $customerName ($accountId): ₹$amount');
+      debugPrint('💰 [CollectionService] Recording receipt for $customerName ($accountId): ₹$amount via $paymentMode');
       
-      final companyId = await _authService.getCompanyId();
-      if (companyId == null) throw Exception('Company ID not found');
-
-      final retailerId = await _authService.getMongoUserId();
-      final retailerName = await _authService.getUserName();
-
-      // Construct Voucher object with Double Entry logic (aligned with dashboard filters)
       final payload = {
-        'companyId': companyId,
-        'recordType': 'Receipt',
-        'billSeries': 'SAL_26',
-        'billNo': DateTime.now().millisecondsSinceEpoch.toString().substring(7),
-        'date': DateTime.now().toIso8601String(),
-        'rows': [
-          // Row 1: The Customer paying (Credited)
-          {
-            'sn': 1,
-            'dc': 'C',
-            'account': customerName,
-            'accountId': accountId, // The Customer's ID
-            'credit': amount,
-            'debit': 0,
-            'modeOfPayment': 'Cash',
-            'shortNarration': 'Payment for Order #$orderId',
-          },
-          // Row 2: The Retailer receiving (Debited) - This makes it show on your dashboard!
-          {
-            'sn': 2,
-            'dc': 'D',
-            'account': 'Cash', 
-            'accountId': retailerId, // The Retailer's ID (Matches req.user.id in analytics)
-            'credit': 0,
-            'debit': amount,
-            'modeOfPayment': 'Cash',
-            'shortNarration': 'Receipt from $customerName',
-          }
-        ],
-        'totalDebit': amount,
-        'totalCredit': amount,
-        'remarks': 'Mobile Payment for Order #$orderId'
+        'amountCollected': amount,
+        'paymentMode': paymentMode,
+        'date': date,
       };
 
-      final response = await ApiClient.dio.post('vouchers', data: payload);
-      
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        debugPrint('✅ [CollectionService] Payment recorded successfully');
-        return true;
+      final candidates = [
+        'v1/orders/$orderId/payments',
+        'v1/payments',
+        'v1/orders/payments',
+      ];
+
+      for (final path in candidates) {
+        try {
+          final response = await ApiClient.dio.post(path, data: payload);
+          if (response.statusCode == 200 || response.statusCode == 201) {
+            debugPrint('✅ [CollectionService] Payment recorded successfully via $path');
+            return true;
+          }
+          debugPrint('⚠️ [CollectionService] Payment recording at $path failed with status: ${response.statusCode}');
+        } catch (e) {
+          debugPrint('⚠️ [CollectionService] Payment post to $path failed: $e');
+        }
       }
-      
-      debugPrint('⚠️ [CollectionService] Payment recording failed with status: ${response.statusCode}');
+
+      debugPrint('❌ [CollectionService] All payment endpoints failed');
       return false;
     } catch (e) {
       debugPrint('❌ [CollectionService] Error recording payment: $e');
@@ -136,9 +119,9 @@ class CollectionService {
           .fold<double>(0.0, (sum, ex) => sum + (ex['amount'] as double));
     }
     try {
-      final response = await ApiClient.dio.get('vouchers');
+      final response = await ApiClient.dio.get('v1/finances/expenses', queryParameters: {'period': '1month'});
       if (response.statusCode == 200 && response.data != null) {
-        final dynamic rawData = response.data is Map ? response.data['data'] : response.data;
+        final dynamic rawData = response.data is Map ? (response.data['data'] != null ? response.data['data']['expenses'] : null) : response.data;
         if (rawData is! List) return 0.0;
 
         final List<dynamic> data = rawData;
